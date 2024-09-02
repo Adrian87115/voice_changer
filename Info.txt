@@ -1,0 +1,6 @@
+The project is based on STARGAN-VC:NON-PARALLELMANY-TO-MANYVOICECONVERSION
+ WITHSTARGENERATIVEADVERSARIALNETWORKS
+ Hirokazu Kameoka, Takuhiro Kaneko, Kou Tanaka, Nobukatsu Hojo
+ NTTCommunication Science Laboratories, NTT Corporation, Japan
+
+ Trainig data: https://datashare.ed.ac.uk/handle/10283/3061
