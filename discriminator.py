@@ -19,23 +19,23 @@ class Discriminator(nn.Module):
         self.sigmoid = nn.Sigmoid()
 
 
-@staticmethod
-def _block(in_channels, kernel_size, out_channels, stride):
-    return nn.Sequential(
-        nn.Conv2d(in_channels = in_channels,
-                  out_channels = out_channels,
-                  kernel_size = kernel_size,
-                  stride = stride,
-                  padding = 0),
-        nn.BatchNorm2d(out_channels),
-        nn.GLU(dim = 1))
+    @staticmethod
+    def _block(in_channels, kernel_size, out_channels, stride):
+        return nn.Sequential(
+            nn.Conv2d(in_channels = in_channels,
+                      out_channels = out_channels,
+                      kernel_size = kernel_size,
+                      stride = stride,
+                      padding = 0),
+            nn.BatchNorm2d(out_channels),
+            nn.GLU(dim = 1))
 
-def forward(self, x):
-    down1 = self.downsample1(x)
-    down2 = self.downsample2(down1)
-    down3 = self.downsample3(down2)
-    down4 = self.downsample4(down3)
-    conv = self.conv(down4)
-    sig = self.sigmoid(conv)
-    product = torch.prod(sig, dim = 1)
-    return product
+    def forward(self, x):
+        down1 = self.downsample1(x)
+        down2 = self.downsample2(down1)
+        down3 = self.downsample3(down2)
+        down4 = self.downsample4(down3)
+        conv = self.conv(down4)
+        sig = self.sigmoid(conv)
+        product = torch.prod(sig, dim = 1)
+        return product
