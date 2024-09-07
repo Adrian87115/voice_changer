@@ -56,8 +56,8 @@ class AudioDataset(Dataset):
     def labelEmb(self):
         for i in range(self.num_speakers):
             batch_size = 1
-            speaker_index = torch.tensor([i], device=torch.device('cuda'))
-            speaker_embedding = torch.zeros(batch_size, self.num_speakers, device=torch.device('cuda')).scatter_(1, speaker_index.unsqueeze(1), 1)
+            speaker_index = torch.tensor([i], device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
+            speaker_embedding = torch.zeros(batch_size, self.num_speakers, device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')).scatter_(1, speaker_index.unsqueeze(1), 1)
             speaker_embedding = speaker_embedding.unsqueeze(2).unsqueeze(3)
             speaker_embedding = speaker_embedding.expand(speaker_embedding.size(0), speaker_embedding.size(1), 36, 512)
             self.speaker_emb[self.labels[i]] = speaker_embedding

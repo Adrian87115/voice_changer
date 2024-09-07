@@ -14,7 +14,7 @@ class ResidualBlock(nn.Module):
         return x + self.main(x)
 
 class Generator(nn.Module):
-    def __init__(self, conv_dim = 32, num_speakers = 12):
+    def __init__(self, num_speakers, conv_dim = 32):
         super(Generator, self).__init__()
         self.in_channels = 1
         self.out_channels = 1
@@ -52,7 +52,7 @@ class Generator(nn.Module):
 
     @staticmethod
     def _up_block(in_channels, kernel_size, out_channels, stride):
-        out_channels = out_channels * 2  #GLU halves the number of channels
+        out_channels = out_channels * 2
         return nn.Sequential(
             nn.ConvTranspose2d(in_channels = in_channels,
                       out_channels = out_channels,

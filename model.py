@@ -10,10 +10,10 @@ import audio_dataset as ad
 class Model():
     def __init__(self):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.generator = g.Generator().to(self.device)
-        self.discriminator = d.Discriminator().to(self.device)
-        self.domain_classifier = dc.DomainClassifier().to(self.device)
         self.getData()
+        self.generator = g.Generator(self.train_dataset.num_speakers).to(self.device)
+        self.discriminator = d.Discriminator(self.train_dataset.num_speakers).to(self.device)
+        self.domain_classifier = dc.DomainClassifier(self.train_dataset.num_speakers).to(self.device)
         self.g_optimizer = optim.Adam(self.generator.parameters(), lr=0.0001, betas=(0.5, 0.999))
         self.d_optimizer = optim.Adam(self.discriminator.parameters(), lr=0.0001, betas=(0.5, 0.999))
         self.c_optimizer = optim.Adam(self.domain_classifier.parameters(), lr=0.0001, betas=(0.5, 0.999))
@@ -63,9 +63,8 @@ class Model():
                     target_speaker_label = self.train_dataset.labels[target_speaker_id.item()]
                     emb = self.train_dataset.speaker_emb[target_speaker_label]
                     fake_mcc = self.generator(mcc, emb)
-
-                    # Discriminator
-                #     real_validity = self.discriminator(mcc, speaker_id_batch[j].unsqueeze(0).to(self.device))
+                    real_validity = self.discriminator(mcc)
+                    classified_fake = self.domain_classifier(fake_mcc)
                 #     fake_validity = self.discriminator(fake_mcc.detach(), target_speaker_id)
                 #     d_loss_real = self.criterion_adv(real_validity, torch.ones_like(real_validity))
                 #     d_loss_fake = self.criterion_adv(fake_validity, torch.zeros_like(fake_validity))

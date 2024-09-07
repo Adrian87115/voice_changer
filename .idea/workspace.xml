@@ -4,9 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="3c7c1e80-1b1c-4a63-93d6-65b38cea8e2e" name="Changes" comment="before changes in architecture">
+    <list default="true" id="3c7c1e80-1b1c-4a63-93d6-65b38cea8e2e" name="Changes" comment="embedding added to generator">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/audio_dataset.py" beforeDir="false" afterPath="$PROJECT_DIR$/audio_dataset.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/discriminator.py" beforeDir="false" afterPath="$PROJECT_DIR$/discriminator.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/domain_classifier.py" beforeDir="false" afterPath="$PROJECT_DIR$/domain_classifier.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/generator.py" beforeDir="false" afterPath="$PROJECT_DIR$/generator.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/model.py" afterDir="false" />
     </list>
@@ -34,26 +36,26 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.audio_dataset.executor": "Run",
-    "Python.discriminator.executor": "Run",
-    "Python.generator.executor": "Run",
-    "Python.main.executor": "Run",
-    "Python.model.executor": "Run",
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "main",
-    "last_opened_file_path": "C:/Users/adria/Desktop/Adrian/projects/PyCharm/chess_app",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.audio_dataset.executor&quot;: &quot;Run&quot;,
+    &quot;Python.discriminator.executor&quot;: &quot;Run&quot;,
+    &quot;Python.generator.executor&quot;: &quot;Run&quot;,
+    &quot;Python.main.executor&quot;: &quot;Run&quot;,
+    &quot;Python.model.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/adria/Desktop/Adrian/projects/PyCharm/chess_app&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager">
     <configuration name="main" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
       <module name="voice_changer" />
@@ -106,7 +108,8 @@
       <workItem from="1725434594586" duration="7696000" />
       <workItem from="1725525046906" duration="1697000" />
       <workItem from="1725543980122" duration="58000" />
-      <workItem from="1725605848076" duration="16666000" />
+      <workItem from="1725605848076" duration="17967000" />
+      <workItem from="1725692473421" duration="4358000" />
     </task>
     <task id="LOCAL-00001" summary="before changes in architecture">
       <option name="closed" value="true" />
@@ -116,7 +119,15 @@
       <option name="project" value="LOCAL" />
       <updated>1725607665535</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="embedding added to generator">
+      <option name="closed" value="true" />
+      <created>1725648564776</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1725648564776</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -124,13 +135,14 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="before changes in architecture" />
-    <option name="LAST_COMMIT_MESSAGE" value="before changes in architecture" />
+    <MESSAGE value="embedding added to generator" />
+    <option name="LAST_COMMIT_MESSAGE" value="embedding added to generator" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/voice_changer$model.coverage" NAME="model Coverage Results" MODIFIED="1725648407196" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/voice_changer$model.coverage" NAME="model Coverage Results" MODIFIED="1725697535355" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/voice_changer$audio_dataset.coverage" NAME="audio_dataset Coverage Results" MODIFIED="1725388259819" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/voice_changer$generator.coverage" NAME="generator Coverage Results" MODIFIED="1725624130279" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/voice_changer$main.coverage" NAME="main Coverage Results" MODIFIED="1725609421737" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/voice_changer$main.coverage" NAME="main Coverage Results" MODIFIED="1725693238004" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/voice_changer$discriminator.coverage" NAME="discriminator Coverage Results" MODIFIED="1725386426388" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>
