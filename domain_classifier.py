@@ -2,17 +2,17 @@ import torch
 import torch.nn as nn
 
 class DomainClassifier(nn.Module):
-    def __init__(self, num_speakers, conv_dim = 8):
+    def __init__(self, num_target_speakers, conv_dim = 8):
         super(DomainClassifier, self).__init__()
         self.in_channels = 1
         self.out_channels = 1
-        self.num_speakers = num_speakers
+        self.num_target_speakers = num_target_speakers
         self.downsample1 = self._block(self.in_channels, (4, 4), conv_dim, (2, 2))
         self.downsample2 = self._block(conv_dim, (4, 4), conv_dim * 2, (2, 2))
         self.downsample3 = self._block(conv_dim * 2, (4, 4), conv_dim * 4, (2, 2))
         self.downsample4 = self._block(conv_dim * 4, (3, 4), conv_dim * 2, (1, 2))
         self.conv = nn.Conv2d(in_channels = conv_dim * 2,
-                              out_channels = self.num_speakers,
+                              out_channels = self.num_target_speakers,
                               kernel_size = (1, 4),
                               stride = (1, 2),
                               padding = 0)

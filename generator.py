@@ -25,7 +25,7 @@ class Generator(nn.Module):
         self.downsample4 = self._down_block(conv_dim * 4, (3, 5), conv_dim * 2, (1, 1))
         self.downsample5 = self._down_block(conv_dim * 2, (9, 5), 5, (9, 1))
 
-        self.residual_blocks = nn.Sequential(*[ResidualBlock(5, 5) for _ in range(6)])
+        self.residual_blocks = nn.Sequential(*[ResidualBlock(5, 5) for _ in range(1)])
 
         self.upsample4 = self._up_block(5, (9, 5), conv_dim * 2, (9, 1))
         self.upsample3 = self._up_block(conv_dim * 2, (3, 5), conv_dim * 4, (1, 1))
