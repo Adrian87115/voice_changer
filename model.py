@@ -2,10 +2,15 @@ import torch
 import torch.optim as optim
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
+from torch.optim.lr_scheduler import StepLR
+import random
+import numpy as np
+import pyworld as pw
 import generator as g
 import discriminator as d
 import domain_classifier as dc
 import audio_dataset as ad
+import utility as u
 
 class Model():
     def __init__(self):
@@ -13,16 +18,42 @@ class Model():
         self.num_source_speakers = 8
         self.num_target_speakers = 4
         self.getData()
-        self.generator = g.Generator(self.train_dataset.num_speakers).to(self.device)
+        self.generator = g.Generator(self.train_dataset.num_speakers).to(self.device)# maybe the problem is with giving id which will be used only once, maybe instead it should have only 4 from target, or not following the feeding architecture(gen to disc etc), or not using attributes in architecture of networks
         self.discriminator = d.Discriminator().to(self.device)
         self.domain_classifier = dc.DomainClassifier(self.num_target_speakers).to(self.device)
         self.g_optimizer = optim.Adam(self.generator.parameters(), lr=0.01, betas=(0.5, 0.999))
-        self.d_optimizer = optim.Adam(self.discriminator.parameters(), lr=0.00001, betas=(0.5, 0.999))
+        self.d_optimizer = optim.Adam(self.discriminator.parameters(), lr=0.001, betas=(0.5, 0.999))
         self.c_optimizer = optim.Adam(self.domain_classifier.parameters(), lr=0.001, betas=(0.5, 0.999))
         self.criterion_adv = nn.BCELoss()
         self.criterion_cycle = nn.L1Loss()
         self.criterion_identity = nn.L1Loss()
         self.criterion_cls = nn.CrossEntropyLoss()
+        self.g_scheduler = StepLR(self.g_optimizer, step_size=1, gamma=0.01)
+        self.d_scheduler = StepLR(self.d_optimizer, step_size=1, gamma=0.01)
+        self.c_scheduler = StepLR(self.c_optimizer, step_size=1, gamma=0.1)
+        self.top_score = float('inf')
+
+    def saveModel(self):
+        file_path = "saved_model.pth"
+        torch.save({
+            'generator_state_dict': self.generator.state_dict(),
+            'discriminator_state_dict': self.discriminator.state_dict(),
+            'domain_classifier_state_dict': self.domain_classifier.state_dict(),
+            'g_optimizer_state_dict': self.g_optimizer.state_dict(),
+            'd_optimizer_state_dict': self.d_optimizer.state_dict(),
+            'c_optimizer_state_dict': self.c_optimizer.state_dict(),
+            'top_score': self.top_score}, file_path)
+
+    def loadModel(self):
+        file_path = "saved_model.pth"
+        checkpoint = torch.load(file_path)
+        self.generator.load_state_dict(checkpoint['generator_state_dict'])
+        self.discriminator.load_state_dict(checkpoint['discriminator_state_dict'])
+        self.domain_classifier.load_state_dict(checkpoint['domain_classifier_state_dict'])
+        self.g_optimizer.load_state_dict(checkpoint['g_optimizer_state_dict'])
+        self.d_optimizer.load_state_dict(checkpoint['d_optimizer_state_dict'])
+        self.c_optimizer.load_state_dict(checkpoint['c_optimizer_state_dict'])
+        self.top_score = checkpoint['top_score']
 
     def getData(self):
         path_train = "training_data/resized_audio" #first 8 are source, next 4 are target
@@ -72,7 +103,9 @@ class Model():
         self.eval_loader = DataLoader(eval_dataset, batch_size=16, shuffle=False)
         self.ref_loader = DataLoader(ref_dataset, batch_size=16, shuffle=False)
 
-    def train(self, num_epochs=10):
+    def train(self, load_state = False, num_epochs = 7):
+        if load_state:
+            self.loadModel()
         print("Training model...")
 
         for epoch in range(num_epochs):
@@ -129,6 +162,9 @@ class Model():
 
                     # Total generator loss
                     g_loss = g_adv_loss + cycle_loss * 10 + id_loss * 5 + cls_loss
+                    if g_loss < self.top_score:
+                        self.top_score = g_loss
+                        self.saveModel()
 
                     # Update generator and domain classifier
                     self.g_optimizer.zero_grad()
@@ -141,7 +177,43 @@ class Model():
                       f"D Loss: {d_loss.item():.4f}, G Loss: {g_loss.item():.4f}, CLS Loss: {cls_loss.item():.4f}")
 
             print(f"Epoch [{epoch}/{num_epochs}] completed.")
+            self.g_scheduler.step()
+            self.d_scheduler.step()
+            self.c_scheduler.step()
+
+    def test(self):
+        self.loadModel()
+        self.generator.eval()
+
+        # Randomly select a sample from the training dataset instead of the evaluation dataset
+        train_sample_idx = random.randint(0, len(self.target_loader) - 1)
+        train_mcc, train_speaker_id = self.source_loader.dataset[train_sample_idx]
+
+        # Prepare the input MCC and speaker embedding using the training data
+        train_mcc = train_mcc.unsqueeze(0).unsqueeze(0).to(self.device)
+        source_speaker_label = self.train_dataset.labels[train_speaker_id.item()]
+        source_emb = self.train_dataset.speaker_emb[source_speaker_label]
+
+        # Select a random target speaker ID from the target speakers in the training set
+        target_speaker_id = torch.randint(0, self.num_target_speakers, (1,)).to(self.device)
+        target_speaker_label = self.train_dataset.labels[target_speaker_id.item() + self.num_source_speakers]
+        target_emb = self.train_dataset.speaker_emb[target_speaker_label]
+
+        # Generate MCC for the target speaker using the generator
+        with torch.no_grad():
+            fake_mcc = self.generator(train_mcc, target_emb)
+        fake_mcc = fake_mcc.squeeze(0).squeeze(0)
+
+        # Ensure that f0 and aperiodicity match the number of frames in fake_mcc
+        num_frames = fake_mcc.size(1)
+        f0 = np.random.uniform(low=70, high=300, size=(num_frames,))  # 1D array for pitch contour
+        aperiodicity = np.zeros((1, num_frames)) + 0.5  # 2D array for aperiodicity with shape (1, num_frames)
+
+        # Save the generated MCC as a WAV file
+        output_wav_file = "generated_speech_from_train.wav"
+        u.convert_mcc_to_wav(fake_mcc, f0, aperiodicity, output_wav_file)
 
 
 model = Model()
 model.train()
+# model.test()

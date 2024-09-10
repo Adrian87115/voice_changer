@@ -3,7 +3,7 @@ import scipy.io
 from torch.utils.data import Dataset
 import torch
 
-class AudioDataset(Dataset):
+class AudioDataset(Dataset):#shape of embedded torch.Size([1, 12, 36, 512]), wrong that is not adjustable for testing
     def __init__(self, root_dir):
         self.root_dir = root_dir
         self.file_list = None
@@ -61,3 +61,11 @@ class AudioDataset(Dataset):
             speaker_embedding = speaker_embedding.unsqueeze(2).unsqueeze(3)
             speaker_embedding = speaker_embedding.expand(speaker_embedding.size(0), speaker_embedding.size(1), 36, 512)
             self.speaker_emb[self.labels[i]] = speaker_embedding
+
+    def __getitem__(self, idx):
+        mcc = torch.tensor(self.mcc[idx], dtype=torch.float32)
+        speaker_id = self.unique_labels.index(self.labels[idx])
+        return mcc, torch.tensor(speaker_id, dtype=torch.long)
+
+    def __len__(self):
+        return len(self.file_list)
