@@ -14,12 +14,11 @@ class ResidualBlock(nn.Module):
         return x + self.main(x)
 
 class Generator(nn.Module):
-    def __init__(self, num_speakers, conv_dim = 32):
+    def __init__(self, conv_dim = 32):
         super(Generator, self).__init__()
         self.in_channels = 1
         self.out_channels = 1
-        self.num_speakers = num_speakers
-        self.downsample1 = self._down_block(self.in_channels + self.num_speakers, (3, 9), conv_dim, (1, 1))
+        self.downsample1 = self._down_block(self.in_channels + 1, (3, 9), conv_dim, (1, 1))
         self.downsample2 = self._down_block(conv_dim, (4, 8), conv_dim * 2, (2, 2))
         self.downsample3 = self._down_block(conv_dim * 2, (4, 8), conv_dim * 4, (2, 2))
         self.downsample4 = self._down_block(conv_dim * 4, (3, 5), conv_dim * 2, (1, 1))

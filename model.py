@@ -6,6 +6,9 @@ from torch.optim.lr_scheduler import StepLR
 import random
 import numpy as np
 import pyworld as pw
+import scipy.io
+from scipy.fftpack import idct
+import soundfile as sf
 import generator as g
 import discriminator as d
 import domain_classifier as dc
@@ -173,47 +176,89 @@ class Model():
                     self.g_optimizer.step()
                     self.c_optimizer.step()
 
-                print(f"Epoch [{epoch}/{num_epochs}] Batch {i}/{len(self.source_loader)}: "
+                print(f"Epoch [{epoch + 1}/{num_epochs}] Batch {i}/{len(self.source_loader)}: "
                       f"D Loss: {d_loss.item():.4f}, G Loss: {g_loss.item():.4f}, CLS Loss: {cls_loss.item():.4f}")
 
-            print(f"Epoch [{epoch}/{num_epochs}] completed.")
+            print(f"Epoch [{epoch + 1}/{num_epochs}] completed.")
             self.g_scheduler.step()
             self.d_scheduler.step()
             self.c_scheduler.step()
 
-    def test(self):
+    # def test(self):
+    #     self.loadModel()
+    #     self.generator.eval()
+    #
+    #     # Randomly select a sample from the training dataset instead of the evaluation dataset
+    #     train_sample_idx = random.randint(0, len(self.target_loader) - 1)
+    #     train_mcc, train_speaker_id = self.source_loader.dataset[train_sample_idx]
+    #
+    #     # Prepare the input MCC and speaker embedding using the training data
+    #     train_mcc = train_mcc.unsqueeze(0).unsqueeze(0).to(self.device)
+    #     source_speaker_label = self.train_dataset.labels[train_speaker_id.item()]
+    #     source_emb = self.train_dataset.speaker_emb[source_speaker_label]
+    #
+    #     # Select a random target speaker ID from the target speakers in the training set
+    #     target_speaker_id = torch.randint(0, self.num_target_speakers, (1,)).to(self.device)
+    #     target_speaker_label = self.train_dataset.labels[target_speaker_id.item() + self.num_source_speakers]
+    #     target_emb = self.train_dataset.speaker_emb[target_speaker_label]
+    #
+    #     # Generate MCC for the target speaker using the generator
+    #     with torch.no_grad():
+    #         fake_mcc = self.generator(train_mcc, target_emb)
+    #     fake_mcc = fake_mcc.squeeze(0).squeeze(0)
+    #
+    #     # Ensure that f0 and aperiodicity match the number of frames in fake_mcc
+    #     num_frames = fake_mcc.size(1)
+    #     f0 = np.random.uniform(low=70, high=300, size=(num_frames,))  # 1D array for pitch contour
+    #     aperiodicity = np.zeros((num_frames, 512)) + 0.5
+    #
+    #     # Save the generated MCC as a WAV file
+    #     output_wav_file = "generated_speech_from_train.wav"
+    #     u.convert_mcc_to_wav(fake_mcc, f0, aperiodicity, output_wav_file)
+
+    def voiceToTarget(self, target_label, path_to_source_data):
+        mean_norm_f0 = self.ref_dataset.getMeanNormLogf0ForSpeaker(target_label)
         self.loadModel()
         self.generator.eval()
-
-        # Randomly select a sample from the training dataset instead of the evaluation dataset
-        train_sample_idx = random.randint(0, len(self.target_loader) - 1)
-        train_mcc, train_speaker_id = self.source_loader.dataset[train_sample_idx]
-
-        # Prepare the input MCC and speaker embedding using the training data
-        train_mcc = train_mcc.unsqueeze(0).unsqueeze(0).to(self.device)
-        source_speaker_label = self.train_dataset.labels[train_speaker_id.item()]
-        source_emb = self.train_dataset.speaker_emb[source_speaker_label]
-
-        # Select a random target speaker ID from the target speakers in the training set
-        target_speaker_id = torch.randint(0, self.num_target_speakers, (1,)).to(self.device)
-        target_speaker_label = self.train_dataset.labels[target_speaker_id.item() + self.num_source_speakers]
-        target_emb = self.train_dataset.speaker_emb[target_speaker_label]
-
-        # Generate MCC for the target speaker using the generator
+        mat_data = scipy.io.loadmat(path_to_source_data)
+        norm_log_f0 = mat_data['norm_log_f0']
+        mcc = mat_data['mcc']
+        source_parameter = mat_data['source_parameter']
+        original_mcc_size = mat_data['original_mcc_size']
+        target_emb = ad.getSpeakerEmbeddingFromLabel(target_label)
+        target_emb = torch.tensor(target_emb, dtype=torch.float32).to(self.device)
+        mcc_tensor = torch.tensor(mcc, dtype=torch.float32).unsqueeze(0).to(self.device)
         with torch.no_grad():
-            fake_mcc = self.generator(train_mcc, target_emb)
-        fake_mcc = fake_mcc.squeeze(0).squeeze(0)
+            fake_mcc = self.generator(mcc_tensor, target_emb)
 
-        # Ensure that f0 and aperiodicity match the number of frames in fake_mcc
-        num_frames = fake_mcc.size(1)
-        f0 = np.random.uniform(low=70, high=300, size=(num_frames,))  # 1D array for pitch contour
-        aperiodicity = np.zeros((1, num_frames)) + 0.5  # 2D array for aperiodicity with shape (1, num_frames)
+        fake_mcc = fake_mcc.squeeze(0).squeeze(0).cpu().numpy()
 
-        # Save the generated MCC as a WAV file
-        output_wav_file = "generated_speech_from_train.wav"
-        u.convert_mcc_to_wav(fake_mcc, f0, aperiodicity, output_wav_file)
+        # Perform inverse DCT to get the spectral envelope
+        spectral_envelope = idct(fake_mcc, type=2, axis=0, norm='ortho')
+
+        # Convert mean_norm_f0 and other parameters to numpy arrays if needed and ensure they're float64
+        if isinstance(mean_norm_f0, torch.Tensor):
+            mean_norm_f0 = mean_norm_f0.cpu().numpy().astype(np.float64)
+        else:
+            mean_norm_f0 = mean_norm_f0.astype(np.float64)
+
+        spectral_envelope = spectral_envelope.astype(np.float64)
+
+        aperiodicity = np.array(source_parameter['aperiodicity'][0][0]) # AS ALWAYS APERIODICITY FUCKS EVERYTHING
+        aperiodicity = np.resize(aperiodicity, (512, 36))
+        aperiodicity = np.ascontiguousarray(aperiodicity)
+        spectral_envelope = np.reshape(spectral_envelope, (512, 36))
+        print(mean_norm_f0.shape, aperiodicity.shape, spectral_envelope.shape)
+
+        # Synthesize the audio using pyworld
+        fs = 22050
+        synthesized_wave = pw.synthesize(mean_norm_f0, spectral_envelope, aperiodicity, fs)
+
+        # Save the output wave
+        sf.write("output_wave.wav", synthesized_wave, fs)
 
 
 model = Model()
-model.train()
+# model.train()
 # model.test()
+model.voiceToTarget("VCC2TF1", "reference_data/resized_audio/VCC2TF1/30001.wav.mat")

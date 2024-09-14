@@ -88,3 +88,49 @@ def convert_mcc_to_wav(mcc, f0, aperiodicity, output_wav_file, sr=22050):
     # Save the waveform to a .wav file
     save_waveform_to_wav(waveform, output_wav_file)
     print(f"Waveform saved to: {output_wav_file}")
+
+
+
+
+
+import numpy as np
+import pyworld as pw
+from scipy.interpolate import interp1d
+import soundfile as sf
+
+# Example placeholders, replace with your actual data
+mcc = np.random.randn(36, 512)  # Mel-cepstral coefficients (MCC)
+f0 = np.random.rand(512) * 100  # F0 (fundamental frequency) values
+aperiodicity = np.random.rand(513, 1340)  # Aperiodicity (513 frequency bins, 1340 frames)
+
+# Resample/Interpolate aperiodicity to match 512 frames
+n_frames_target = 512
+n_frequency_bins = aperiodicity.shape[0]  # 513 frequency bins
+
+# Create interpolation function for each frequency bin
+interpolated_aperiodicity = np.zeros((n_frequency_bins, n_frames_target))
+x_old = np.linspace(0, 1, aperiodicity.shape[1])  # Original 1340 frames
+x_new = np.linspace(0, 1, n_frames_target)        # New 512 frames
+
+for i in range(n_frequency_bins):
+    interp_func = interp1d(x_old, aperiodicity[i], kind='linear')
+    interpolated_aperiodicity[i] = interp_func(x_new)
+
+# Now the aperiodicity has the shape (513, 512), which matches the expected shape
+aperiodicity_resized = interpolated_aperiodicity.T  # Shape should be (512, 513)
+
+# Ensure MCC and aperiodicity_resized are C-contiguous before passing to PyWorld
+mcc_contiguous = np.ascontiguousarray(mcc.T)  # Transpose and make C-contiguous
+aperiodicity_resized_contiguous = np.ascontiguousarray(aperiodicity_resized)  # Make C-contiguous
+
+# Convert MCC to spectrogram
+spectrogram = pw.decode_spectral_envelope(mcc_contiguous, fs=16000, fft_size=1024)
+
+# Ensure the spectrogram is C-contiguous
+spectrogram_contiguous = np.ascontiguousarray(spectrogram)
+
+# Synthesize the waveform
+wav = pw.synthesize(f0, spectrogram_contiguous, aperiodicity_resized_contiguous, fs=16000)
+print(f0.shape, spectrogram.shape, aperiodicity_resized_contiguous.shape)
+# Save the wav file
+sf.write('output.wav', wav, 16000)
