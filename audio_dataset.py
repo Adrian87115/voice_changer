@@ -74,10 +74,10 @@ class AudioDataset(Dataset):
         for label in self.labels:
             if label in all_labels:
                 label_index = all_labels.index(label)  # Get the index from the global list
-                speaker_embedding = torch.zeros(1, 1, 36, 512,
+                speaker_embedding = torch.zeros(1, 1, 512, 36,
                                                 device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
-                row = label_index % 36
-                col = label_index % 512
+                row = label_index % 512
+                col = label_index % 36
                 speaker_embedding[0, 0, row, col] = 1
                 self.speaker_emb[label] = speaker_embedding
 
@@ -156,11 +156,11 @@ def getSpeakerEmbeddingFromLabel(label):
     label_index = all_labels.index(label)
 
     # Create an embedding tensor of size (1, 1, 36, 512)
-    embedding = torch.zeros(1, 1, 36, 512, device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
+    embedding = torch.zeros(1, 1, 512, 36, device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
 
     # Calculate the row and column position based on the index
-    row = label_index % 36
-    col = label_index % 512
+    row = label_index % 512
+    col = label_index % 36
 
     # Set the corresponding position to 1
     embedding[0, 0, row, col] = 1

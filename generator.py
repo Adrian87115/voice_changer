@@ -24,7 +24,7 @@ class Generator(nn.Module):
         self.downsample4 = self._down_block(conv_dim * 4, (3, 5), conv_dim * 2, (1, 1))
         self.downsample5 = self._down_block(conv_dim * 2, (9, 5), 5, (9, 1))
 
-        self.residual_blocks = nn.Sequential(*[ResidualBlock(5, 5) for _ in range(0)])
+        self.residual_blocks = nn.Sequential(*[ResidualBlock(5, 5) for _ in range(10)])
 
         self.upsample4 = self._up_block(5, (9, 5), conv_dim * 2, (9, 1))
         self.upsample3 = self._up_block(conv_dim * 2, (3, 5), conv_dim * 4, (1, 1))
@@ -33,9 +33,9 @@ class Generator(nn.Module):
 
         self.deconv = nn.ConvTranspose2d(in_channels = conv_dim,
                                          out_channels = self.out_channels,
-                                         kernel_size = (9, 9),
+                                         kernel_size = (3, 11),
                                          stride = (1, 1),
-                                         padding = (0,0))
+                                         padding = (0,2))
 
     @staticmethod
     def _down_block(in_channels, kernel_size, out_channels, stride):
@@ -45,7 +45,7 @@ class Generator(nn.Module):
                       out_channels = out_channels,
                       kernel_size = kernel_size,
                       stride = stride,
-                      padding = 1),
+                      padding = 2),
             nn.BatchNorm2d(out_channels, affine = True, track_running_stats = True),
             nn.GLU(dim = 1))
 
@@ -57,7 +57,7 @@ class Generator(nn.Module):
                       out_channels = out_channels,
                       kernel_size = kernel_size,
                       stride = stride,
-                      padding = 1),
+                      padding = 2),
             nn.BatchNorm2d(out_channels, affine = True, track_running_stats = True),
             nn.GLU(dim = 1))
 

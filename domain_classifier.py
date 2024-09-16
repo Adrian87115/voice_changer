@@ -27,7 +27,7 @@ class DomainClassifier(nn.Module):
                       out_channels = out_channels,
                       kernel_size = kernel_size,
                       stride = stride,
-                      padding = 1),
+                      padding = 2),
             nn.BatchNorm2d(out_channels),
             nn.GLU(dim = 1))
 

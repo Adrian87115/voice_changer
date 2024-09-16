@@ -4,9 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="3c7c1e80-1b1c-4a63-93d6-65b38cea8e2e" name="Changes" comment="embedding labels need another channels approach">
+    <list default="true" id="3c7c1e80-1b1c-4a63-93d6-65b38cea8e2e" name="Changes" comment="the problem is with dimensions of mcc, i made it 36,512 BUT RESEARCH PAPER STATES 36 height not width, so it has to be 512,36">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/audio_dataset.py" beforeDir="false" afterPath="$PROJECT_DIR$/audio_dataset.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/discriminator.py" beforeDir="false" afterPath="$PROJECT_DIR$/discriminator.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/domain_classifier.py" beforeDir="false" afterPath="$PROJECT_DIR$/domain_classifier.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/generator.py" beforeDir="false" afterPath="$PROJECT_DIR$/generator.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/model.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/utility.py" beforeDir="false" afterPath="$PROJECT_DIR$/utility.py" afterDir="false" />
@@ -120,7 +122,9 @@
       <workItem from="1725988028259" duration="2397000" />
       <workItem from="1726038408516" duration="10864000" />
       <workItem from="1726142416253" duration="4892000" />
-      <workItem from="1726310824781" duration="1985000" />
+      <workItem from="1726310824781" duration="12943000" />
+      <workItem from="1726407612321" duration="10494000" />
+      <workItem from="1726470415665" duration="2266000" />
     </task>
     <task id="LOCAL-00001" summary="before changes in architecture">
       <option name="closed" value="true" />
@@ -162,7 +166,15 @@
       <option name="project" value="LOCAL" />
       <updated>1725972179100</updated>
     </task>
-    <option name="localTasksCounter" value="6" />
+    <task id="LOCAL-00006" summary="wav is created, but most likely incorrectly">
+      <option name="closed" value="true" />
+      <created>1726315684476</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1726315684476</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -174,12 +186,13 @@
     <MESSAGE value="discriminator, classifier and generator finished for now" />
     <MESSAGE value="trains correctly, but results are terribly low" />
     <MESSAGE value="embedding labels need another channels approach" />
-    <option name="LAST_COMMIT_MESSAGE" value="embedding labels need another channels approach" />
+    <MESSAGE value="wav is created, but most likely incorrectly" />
+    <option name="LAST_COMMIT_MESSAGE" value="wav is created, but most likely incorrectly" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/voice_changer$model.coverage" NAME="model Coverage Results" MODIFIED="1726315458933" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/voice_changer$model.coverage" NAME="model Coverage Results" MODIFIED="1726472543726" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/voice_changer$audio_dataset.coverage" NAME="audio_dataset Coverage Results" MODIFIED="1725388259819" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/voice_changer$utility.coverage" NAME="utility Coverage Results" MODIFIED="1726155635836" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/voice_changer$utility.coverage" NAME="utility Coverage Results" MODIFIED="1726392547880" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/voice_changer$generator.coverage" NAME="generator Coverage Results" MODIFIED="1725624130279" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/voice_changer$main.coverage" NAME="main Coverage Results" MODIFIED="1726142424365" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/voice_changer$discriminator.coverage" NAME="discriminator Coverage Results" MODIFIED="1725386426388" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
