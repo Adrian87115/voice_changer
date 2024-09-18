@@ -4,6 +4,9 @@ from scipy.interpolate import interp1d
 import soundfile as sf
 import matplotlib.pyplot as plt
 import scipy.io.wavfile as wavfile
+import scipy.io
+from scipy.fftpack import dct
+from scipy.fftpack import idct
 
 # # Example placeholders, replace with your actual data
 # mcc = np.random.randn(36, 512)  # Mel-cepstral coefficients (MCC)
@@ -73,7 +76,9 @@ def plot_mcc_comparison(original_mcc, fake_mcc_interp):
     plt.show()
     plt.show()
 
-
+def normLogf0Tof0(logf0):
+    f0 = np.exp(logf0)
+    return f0
 
 def process_wav_file(wav_path):
     # Read the wav file
@@ -95,11 +100,22 @@ def process_wav_file(wav_path):
 
     # Step 3: Spectrogram extraction
     sp = pw.cheaptrick(x, f0, t, fs)  # Smooth spectrogram
+    sp_t = sp.T  # Transpose to get shape (513, 1228)
 
-    plt.subplot(1, 2, 2)
-    plt.imshow(sp, aspect='auto', origin='lower', cmap='viridis')
+    # Initialize MCC matrix
+    mcc = np.zeros((sp_t.shape[1], 36))  # Initialize with time frames x 36
+
+    # Calculate MCC
+    for i in range(sp_t.shape[1]):
+        log_spectrum = np.log(sp_t[:, i] + np.finfo(float).eps)
+        c = dct(log_spectrum, type=2, norm='ortho')
+        mcc[i, :] = c[:36]
+
+    mcc = mcc.T
+
+    plt.imshow(mcc, aspect='auto', origin='lower', cmap='viridis')
     plt.colorbar()
-    plt.title('original MCC')
+    plt.title('Original Spectrogram')
     plt.xlabel('Time Frames')
     plt.ylabel('MCC Coefficients')
 
@@ -114,10 +130,23 @@ def process_wav_file(wav_path):
     return f0, sp, ap, fs
 
 # Process the wav file
-f0, sp, ap, fs = process_wav_file("reference_data/audio/VCC2TF1/30002.wav")
+f0, sp, ap, fs = process_wav_file("C:/Users/adria/Desktop/test/audio/VCC2SF1/10001.wav")
 
 # Synthesize the audio
-y = pw.synthesize(f0, sp, ap, fs)
+# y = pw.synthesize(f0, sp, ap, fs)
 
 # Save the output waveform
-sf.write("reassembled.wav", y, fs)
+# sf.write("reassembled.wav", y, fs)
+
+mat_data = scipy.io.loadmat("C:/Users/adria/Desktop/test/transformed_audio/VCC2SF1/10001.wav.mat")
+mcc = mat_data['mcc']
+spectral_envelope = idct(mcc, type=2, axis=0, norm='ortho')
+spectral_envelope = np.exp(spectral_envelope)
+spectral_envelope = spectral_envelope.astype(np.float64)
+plt.subplot(1, 2, 2)
+plt.imshow(mcc, aspect='auto', origin='lower', cmap='viridis')
+plt.colorbar()
+plt.title('from mat MCC')
+plt.xlabel('Time Frames')
+plt.ylabel('MCC Coefficients')
+plt.show()

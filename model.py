@@ -41,7 +41,7 @@ class Model():
         self.top_score = float('inf')
 
     def saveModel(self):
-        file_path = "saved_model.pth"
+        file_path = "saved_model2.pth"
         torch.save({
             'generator_state_dict': self.generator.state_dict(),
             'discriminator_state_dict': self.discriminator.state_dict(),
@@ -258,8 +258,9 @@ class Model():
         print(norm_log_f0.shape, spectral_envelope.shape, aperiodicity.shape)
 
         fs = 22050
-        synthesized_wave = pw.synthesize(norm_log_f0, spectral_envelope, aperiodicity, fs)
+        synthesized_wave = pw.synthesize(u.normLogf0Tof0(norm_log_f0), spectral_envelope, aperiodicity, fs)
         sf.write("output_wave.wav", synthesized_wave, fs)
+        print("finish")
 # ways to check: compare original mcc and fake, add original pitch to check if better, may not work because of reshaping
 # maybe avg f0 causes this noise, or log has to be unpacked
 # cost function in my opinion sucks
