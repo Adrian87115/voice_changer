@@ -14,8 +14,8 @@ class Discriminator(nn.Module):
         self.conv = nn.Conv2d(in_channels = conv_dim,
                               out_channels = self.out_channels,
                               kernel_size = (36, 5),
-                              stride = (36, 1),
-                              padding = 1)
+                              stride = (1, 2),
+                              padding = 0)
         self.sigmoid = nn.Sigmoid()
 
     @staticmethod
@@ -26,7 +26,7 @@ class Discriminator(nn.Module):
                       out_channels = out_channels,
                       kernel_size = kernel_size,
                       stride = stride,
-                      padding = 2),
+                      padding = 1),
             nn.BatchNorm2d(out_channels),
             nn.GLU(dim = 1))
 

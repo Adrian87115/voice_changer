@@ -4,8 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="3c7c1e80-1b1c-4a63-93d6-65b38cea8e2e" name="Changes" comment="so many things may be wrong, maybe 36 time time frames should be upscaled">
+    <list default="true" id="3c7c1e80-1b1c-4a63-93d6-65b38cea8e2e" name="Changes" comment="struggling with dimensions of mcc, now works, but spectral envelope has reversed axes in python">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/audio_dataset.py" beforeDir="false" afterPath="$PROJECT_DIR$/audio_dataset.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/discriminator.py" beforeDir="false" afterPath="$PROJECT_DIR$/discriminator.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/generator.py" beforeDir="false" afterPath="$PROJECT_DIR$/generator.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/model.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/utility.py" beforeDir="false" afterPath="$PROJECT_DIR$/utility.py" afterDir="false" />
     </list>
@@ -44,7 +47,7 @@
     &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/adria/Desktop/Adrian/projects/PyCharm/project_iris&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -124,7 +127,12 @@
       <workItem from="1726494586139" duration="185000" />
       <workItem from="1726572863624" duration="7171000" />
       <workItem from="1726593436588" duration="1372000" />
-      <workItem from="1726647520959" duration="2376000" />
+      <workItem from="1726647520959" duration="4134000" />
+      <workItem from="1726656792958" duration="305000" />
+      <workItem from="1726730525443" duration="5702000" />
+      <workItem from="1726774975537" duration="4015000" />
+      <workItem from="1726816432935" duration="5687000" />
+      <workItem from="1726828564024" duration="2524000" />
     </task>
     <task id="LOCAL-00001" summary="before changes in architecture">
       <option name="closed" value="true" />
@@ -182,7 +190,15 @@
       <option name="project" value="LOCAL" />
       <updated>1726472790924</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="struggling with dimensions of mcc, now works, but spectral envelope has reversed axes in python">
+      <option name="closed" value="true" />
+      <created>1726649912863</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1726649912863</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -196,13 +212,14 @@
     <MESSAGE value="embedding labels need another channels approach" />
     <MESSAGE value="wav is created, but most likely incorrectly" />
     <MESSAGE value="so many things may be wrong, maybe 36 time time frames should be upscaled" />
-    <option name="LAST_COMMIT_MESSAGE" value="so many things may be wrong, maybe 36 time time frames should be upscaled" />
+    <MESSAGE value="struggling with dimensions of mcc, now works, but spectral envelope has reversed axes in python" />
+    <option name="LAST_COMMIT_MESSAGE" value="struggling with dimensions of mcc, now works, but spectral envelope has reversed axes in python" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/voice_changer$model.coverage" NAME="model Coverage Results" MODIFIED="1726592226994" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/voice_changer$model.coverage" NAME="model Coverage Results" MODIFIED="1726831005251" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/voice_changer$audio_dataset.coverage" NAME="audio_dataset Coverage Results" MODIFIED="1725388259819" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/voice_changer$utility.coverage" NAME="utility Coverage Results" MODIFIED="1726649851245" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/voice_changer$generator.coverage" NAME="generator Coverage Results" MODIFIED="1725624130279" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/voice_changer$utility.coverage" NAME="utility Coverage Results" MODIFIED="1726830231600" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/voice_changer$generator.coverage" NAME="generator Coverage Results" MODIFIED="1726778539609" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/voice_changer$main.coverage" NAME="main Coverage Results" MODIFIED="1726142424365" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/voice_changer$discriminator.coverage" NAME="discriminator Coverage Results" MODIFIED="1725386426388" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>

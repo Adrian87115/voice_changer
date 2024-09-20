@@ -17,6 +17,8 @@ import domain_classifier as dc
 import audio_dataset as ad
 import utility as u
 import warnings
+import torchvision.transforms.functional as f
+import torchvision
 warnings.filterwarnings("ignore")
 
 class Model():
@@ -52,7 +54,7 @@ class Model():
             'top_score': self.top_score}, file_path)
 
     def loadModel(self):
-        file_path = "saved_model.pth"
+        file_path = "saved_model2.pth"
         checkpoint = torch.load(file_path)
         self.generator.load_state_dict(checkpoint['generator_state_dict'])
         self.discriminator.load_state_dict(checkpoint['discriminator_state_dict'])
@@ -190,82 +192,68 @@ class Model():
             print("min: ", self.top_score)
 
     def voiceToTarget(self, target_label, path_to_source_data):
-        mean_norm_f0 = self.ref_dataset.getMeanNormLogf0ForSpeaker(target_label)
-        mean_norm_f0 = mean_norm_f0.cpu().numpy().astype(np.float64)
         self.loadModel()
         self.generator.eval()
         mat_data = scipy.io.loadmat(path_to_source_data)
         norm_log_f0 = mat_data['norm_log_f0']
+        mean_log_f0 = mat_data['mean_log_f0']
+        std_log_f0 = mat_data['std_log_f0']
         mcc = mat_data['mcc']
         source_parameter = mat_data['source_parameter']
         original_mcc_size = mat_data['original_mcc_size'][0]
-        x_old = np.linspace(0, 1, 512)
-        x_new = np.linspace(0, 1, original_mcc_size[1])
-        mean_norm_f0 = interp1d(x_old, mean_norm_f0, kind='linear')(x_new)
-        print(original_mcc_size)# [36, 558] first dim is not complete
-
 
         x_old = np.linspace(0, 1, 512)
         x_new = np.linspace(0, 1, original_mcc_size[1])
         norm_log_f0 = interp1d(x_old, norm_log_f0, kind='linear')(x_new)
         norm_log_f0 = np.reshape(norm_log_f0, (norm_log_f0.shape[1],))
 
-
         target_emb = ad.getSpeakerEmbeddingFromLabel(target_label)
         target_emb = torch.tensor(target_emb, dtype=torch.float32).to(self.device)
         mcc_tensor = torch.tensor(mcc, dtype=torch.float32).unsqueeze(0).to(self.device)
         with torch.no_grad():
             fake_mcc = self.generator(mcc_tensor, target_emb)
+        mcc_tensor = mcc_tensor.unsqueeze(0)
+        # firstly make from mcc spectral parameter, and then upsize
+        upscaled_mcc = f.resize(mcc_tensor, original_mcc_size,interpolation=torchvision.transforms.InterpolationMode.BICUBIC)# test if works correctly with passing original mcc
+        upscaled_mcc = upscaled_mcc.cpu().numpy().squeeze(0).squeeze(0)
 
-        fake_mcc = fake_mcc.squeeze(0).squeeze(0).cpu().numpy()
-        u.plot_mcc_comparison(mcc, fake_mcc)
-
-        x_old = np.linspace(0, 1, 512)
-        x_new = np.linspace(0, 1, original_mcc_size[1])
-        fake_mcc_interp = np.zeros((original_mcc_size[1], 36))
-
-        # Interpolate each row of fake_mcc
-        for i in range(fake_mcc.shape[1]):
-            # Create the interpolation function
-            interp_func = interp1d(x_old, fake_mcc[:, i], kind='linear', fill_value='extrapolate')
-
-            # Apply the interpolation function to the new x values
-            fake_mcc_interp[:, i] = interp_func(x_new)
-        spectral_envelope = idct(fake_mcc_interp, type=2, axis=0, norm='ortho')
+        spectral_envelope = idct(upscaled_mcc, type=2, axis=0, norm='ortho')
         spectral_envelope = np.exp(spectral_envelope)
         spectral_envelope = spectral_envelope.astype(np.float64)
+        spectral_envelope = spectral_envelope.T
+        spectral_envelope = np.ascontiguousarray(spectral_envelope)
+        aperiodicity = np.array(source_parameter['aperiodicity'][0][0]).T
 
-        plt.subplot(1, 2, 2)
-        plt.imshow(spectral_envelope, aspect='auto', origin='lower', cmap='viridis')
+        fs = 22050
+        f0 = u.normLogTof0(norm_log_f0, mean_log_f0, std_log_f0)
+        print(f0.shape, spectral_envelope.shape, aperiodicity.shape)
+        plt.plot(f0)
+        plt.title('Pitch Contour (f0)')
+        plt.xlabel('Time Frames')
+        plt.ylabel('Pitch (Hz)')
+        plt.grid(True)
+        plt.show()
+
+        plt.imshow(spectral_envelope, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
         plt.colorbar()
-        plt.title('Fake MCC')
+        plt.title('Original Spectrogram')
         plt.xlabel('Time Frames')
         plt.ylabel('MCC Coefficients')
         plt.show()
 
-        aperiodicity = np.array(source_parameter['aperiodicity'][0][0])
-        aperiodicity = np.reshape(aperiodicity, (aperiodicity.shape[1], aperiodicity.shape[0]))
-        x_old_freq = np.linspace(0, 1, aperiodicity.shape[1])
-        x_new_freq = np.linspace(0, 1, 36)
-        aperiodicity_downsampled = np.zeros((aperiodicity.shape[0], 36))
-        for i in range(aperiodicity.shape[0]):
-            interpolator = interp1d(x_old_freq, aperiodicity[i, :], kind='linear')
-            aperiodicity_downsampled[i, :] = interpolator(x_new_freq)
-        aperiodicity = np.ascontiguousarray(aperiodicity_downsampled)
-
-
-
-        print(norm_log_f0.shape, spectral_envelope.shape, aperiodicity.shape)
-
-        fs = 22050
-        synthesized_wave = pw.synthesize(u.normLogf0Tof0(norm_log_f0), spectral_envelope, aperiodicity, fs)
+        plt.imshow(aperiodicity, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
+        plt.colorbar()
+        plt.title('Aperiodicity')
+        plt.xlabel('Time Frames')
+        plt.ylabel('val')
+        plt.show()
+        synthesized_wave = pw.synthesize(f0, spectral_envelope, aperiodicity, fs)
         sf.write("output_wave.wav", synthesized_wave, fs)
         print("finish")
-# ways to check: compare original mcc and fake, add original pitch to check if better, may not work because of reshaping
-# maybe avg f0 causes this noise, or log has to be unpacked
+
 # cost function in my opinion sucks
-# less time frames than in original
 
 model = Model()
 # model.train()
-model.voiceToTarget("VCC2TF2", "reference_data/resized_audio/VCC2TF1/30002.wav.mat")
+# model.voiceToTarget("VCC2TF2", "reference_data/resized_audio/VCC2TF1/30002.wav.mat")
+model.voiceToTarget("VCC2TF2", "C:/Users/adria/Desktop/test/resized_audio/VCC2SF1/10001.wav.mat")
