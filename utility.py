@@ -58,17 +58,16 @@ def process_wav_file(wav_path):
     mcc = mcc.T
     sp2 = reverse_mcc_to_spectral(mcc).T # i test here to see why so much lose happens, and if it affects the result - it doesnt
     sp2 = np.ascontiguousarray(sp2)
-    plt.imshow(sp_t, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
-    plt.colorbar()
-    plt.title('Original Spectrogram')
-    plt.xlabel('Time Frames')
-    plt.ylabel('MCC Coefficients')
-    plt.show()
+    # plt.imshow(sp, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
+    # plt.colorbar()
+    # plt.title('Original Spectrogram')
+    # plt.xlabel('Time Frames')
+    # plt.ylabel('MCC Coefficients')
+    # plt.show()
 
     # there is a risk that when transposed it is now backwards
-
     ap = pw.d4c(x, f0, t, fs)
-    print(f0.shape, sp2.shape, ap.shape)
+    print(f0.shape, sp.shape, ap.shape)
     return f0, sp, ap, fs
 
 
@@ -93,42 +92,43 @@ def reverse_mcc_to_spectral(mcc):
 f0, sp, ap, fs = process_wav_file("C:/Users/adria/Desktop/test/audio/VCC2SF1/10001.wav")
 
 
-# y = pw.synthesize(f0, sp, ap, fs)
-# plt.plot(f0)
-# plt.title('Pitch Contour (f0)')
-# plt.xlabel('Time Frames')
-# plt.ylabel('Pitch (Hz)')
-# plt.grid(True)
-# plt.show()
-#
-# plt.imshow(sp, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
-# plt.colorbar()
-# plt.title('Original Spectrogram')
-# plt.xlabel('Time Frames')
-# plt.ylabel('MCC Coefficients')
-# plt.show()
-#
-# plt.imshow(ap, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
-# plt.colorbar()
-# plt.title('Aperiodicity')
-# plt.xlabel('Time Frames')
-# plt.ylabel('val')
-# plt.show()
-# sf.write("reassembled.wav", y, fs)
+y = pw.synthesize(f0, sp, ap, fs)
 
-mat_data = scipy.io.loadmat("C:/Users/adria/Desktop/test/resized_audio/VCC2SF1/10001.wav.mat")
-mcc = mat_data['mcc']
+plt.plot(f0)
+plt.title('Pitch Contour (f0)')
+plt.xlabel('Time Frames')
+plt.ylabel('Pitch (Hz)')
+plt.grid(True)
+plt.show()
+
+plt.imshow(sp, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
+plt.colorbar()
+plt.title('Original Spectrogram')
+plt.xlabel('Time Frames')
+plt.ylabel('MCC Coefficients')
+plt.show()
+
+plt.imshow(ap, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
+plt.colorbar()
+plt.title('Aperiodicity')
+plt.xlabel('Time Frames')
+plt.ylabel('val')
+plt.show()
+sf.write("reassembled.wav", y, fs)
+
+# mat_data = scipy.io.loadmat("C:/Users/adria/Desktop/test/resized_audio/VCC2SF1/10001.wav.mat")
+# mcc = mat_data['mcc']
 # print(mcc.shape)
 # print(mat_data['original_mcc_size'])
 # print(mat_data['source_parameter']['aperiodicity'][0][0].shape)
 # print(mat_data['norm_log_f0'].shape)
-spectral_envelope = idct(mcc, type=2, axis=0, norm='ortho')
-spectral_envelope = np.exp(spectral_envelope)
-spectral_envelope = spectral_envelope.astype(np.float64)
-plt.subplot(1, 2, 2)
-plt.imshow(spectral_envelope, aspect='auto', origin='lower', cmap='viridis')
-plt.colorbar()
-plt.title('from mat MCC')
-plt.xlabel('Time Frames')
-plt.ylabel('MCC Coefficients')
-plt.show()
+# spectral_envelope = idct(mcc, type=2, axis=0, norm='ortho')
+# spectral_envelope = np.exp(spectral_envelope)
+# spectral_envelope = spectral_envelope.astype(np.float64)
+# plt.subplot(1, 2, 2)
+# plt.imshow(spectral_envelope, aspect='auto', origin='lower', cmap='viridis')
+# plt.colorbar()
+# plt.title('from mat MCC')
+# plt.xlabel('Time Frames')
+# plt.ylabel('MCC Coefficients')
+# plt.show()

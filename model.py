@@ -9,6 +9,7 @@ import pyworld as pw
 import matplotlib.pyplot as plt
 import scipy.io
 from scipy.fftpack import idct
+from scipy.ndimage import zoom
 from scipy.interpolate import interp1d
 import soundfile as sf
 import generator as g
@@ -191,7 +192,7 @@ class Model():
             self.c_scheduler.step()
             print("min: ", self.top_score)
 
-    def voiceToTarget(self, target_label, path_to_source_data):
+    def voiceToTarget(self, target_label, path_to_source_data, f0, sp):
         self.loadModel()
         self.generator.eval()
         mat_data = scipy.io.loadmat(path_to_source_data)
@@ -214,14 +215,21 @@ class Model():
             fake_mcc = self.generator(mcc_tensor, target_emb)
         mcc_tensor = mcc_tensor.unsqueeze(0)
         # firstly make from mcc spectral parameter, and then upsize
-        upscaled_mcc = f.resize(mcc_tensor, original_mcc_size,interpolation=torchvision.transforms.InterpolationMode.BICUBIC)# test if works correctly with passing original mcc
-        upscaled_mcc = upscaled_mcc.cpu().numpy().squeeze(0).squeeze(0)
 
-        spectral_envelope = idct(upscaled_mcc, type=2, axis=0, norm='ortho')
+        mcc_tensor = mcc_tensor.cpu().numpy().squeeze(0).squeeze(0)
+        spectral_envelope = idct(mcc_tensor, type=2, axis=0, norm='ortho')
         spectral_envelope = np.exp(spectral_envelope)
         spectral_envelope = spectral_envelope.astype(np.float64)
+
+        zoom_factors = [n / o for n, o in zip(original_mcc_size, spectral_envelope.shape)]
+
+        # Resize the spectral envelope using zoom
+        spectral_envelope = zoom(spectral_envelope, zoom_factors, order=1)
+        # spectral_envelope = f.resize(spectral_envelope, original_mcc_size,
+        #                         interpolation=torchvision.transforms.InterpolationMode.BICUBIC)  # test if works correctly with passing original mcc
         spectral_envelope = spectral_envelope.T
         spectral_envelope = np.ascontiguousarray(spectral_envelope)
+
         aperiodicity = np.array(source_parameter['aperiodicity'][0][0]).T
 
         fs = 22050
@@ -252,8 +260,9 @@ class Model():
         print("finish")
 
 # cost function in my opinion sucks
-
+f0, sp, ap, fs = u.process_wav_file("C:/Users/adria/Desktop/test/audio/VCC2SF1/10001.wav")
 model = Model()
 # model.train()
 # model.voiceToTarget("VCC2TF2", "reference_data/resized_audio/VCC2TF1/30002.wav.mat")
-model.voiceToTarget("VCC2TF2", "C:/Users/adria/Desktop/test/resized_audio/VCC2SF1/10001.wav.mat")
+model.voiceToTarget("VCC2TF2", "C:/Users/adria/Desktop/test/resized_audio/VCC2SF1/10001.wav.mat", f0, sp)
+#  still spectral parameter is a trash and sound is off
