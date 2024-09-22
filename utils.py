@@ -6,12 +6,12 @@ import matplotlib.pyplot as plt
 import os
 from scipy.ndimage import zoom
 
-def load_wav(wav_file, sr):
+def loadWav(wav_file, sr):
     wav, _ = librosa.load(wav_file, sr = sr, mono = True)
     return wav
 
-def decompose_wav(wav_file, fs = 22050, frame_period = 5.0, mcc_dim = 36):
-    wav = load_wav(wav_file, sr = fs)
+def decomposeWav(wav_file, fs = 22050, frame_period = 5.0, mcc_dim = 36):
+    wav = loadWav(wav_file, sr = fs)
     wav = wav.astype(np.float64)
     f0, timeaxis = pyworld.harvest(wav, fs, frame_period = frame_period)
     sp = pyworld.cheaptrick(wav, f0, timeaxis, fs)
@@ -19,34 +19,25 @@ def decompose_wav(wav_file, fs = 22050, frame_period = 5.0, mcc_dim = 36):
     mcc = pyworld.code_spectral_envelope(sp, fs, mcc_dim)
     return f0, mcc, ap, fs, frame_period
 
-def decode_mcc(mcc, fs):
+def decodeMcc(mcc, fs):
     fftlen = pyworld.get_cheaptrick_fft_size(fs)
     decoded_sp = pyworld.decode_spectral_envelope(mcc, fs, fftlen)
     return decoded_sp
 
-def reassemble_wav(f0, mcc, ap, fs, frame_period):
-    decoded_sp = decode_mcc(mcc, fs)
+def reassembleWav(f0, mcc, ap, fs, frame_period):
+    decoded_sp = decodeMcc(mcc, fs)
     synthesized_wav = pyworld.synthesize(f0, decoded_sp, ap, fs, frame_period)
     return synthesized_wav
 
-def save_wav(wav, output_file, fs):
+def saveWav(wav, output_file, fs):
     sf.write(output_file, wav, fs)
 
-def process_wav(wav_file, output_file, fs, frame_period = 5.0, mcc_dim = 36):
-    f0, mcc, ap, fs, frame_period = decompose_wav(wav_file, fs, frame_period, mcc_dim)
-    print(f0.shape, mcc.shape, ap.shape)
-    reassembled_wav = reassemble_wav(f0, mcc, ap, fs, frame_period)
-    save_wav(reassembled_wav, output_file, fs)
+def processWav(wav_file, output_file, fs, frame_period = 5.0, mcc_dim = 36):
+    f0, mcc, ap, fs, frame_period = decomposeWav(wav_file, fs, frame_period, mcc_dim)
+    reassembled_wav = reassembleWav(f0, mcc, ap, fs, frame_period)
+    saveWav(reassembled_wav, output_file, fs)
 
-# input_wav = "C:/Users/adria/Desktop/test/audio/VCC2SF1/10001.wav"  # Input WAV file path
-# output_wav = "C:/Users/adria/Desktop/test/audio/VCC2SF1/output.wav"
-# sampling_rate = 22050  # Target sampling rate
-#
-# # Process the WAV file with 36 MCC dimensions
-# process_wav(input_wav, output_wav, fs=sampling_rate, frame_period=5.0, mcc_dim=36)
-
-
-def batch_process_audio(input_dir):
+def batchProcessAudio(input_dir):
     parent_dir = os.path.dirname(input_dir)
     output_dir = os.path.join(parent_dir, 'transformed_audio')
     if not os.path.exists(output_dir):
@@ -64,11 +55,11 @@ def batch_process_audio(input_dir):
         for audio_file in audio_files:
             input_filename = os.path.join(input_speaker_folder, audio_file)
             output_filename = os.path.join(output_speaker_folder, audio_file[:-4] + ".npz")
-            process_audio(input_filename, output_filename)
+            processAudio(input_filename, output_filename)
 
-def process_audio(input_filename, output_filename):
+def processAudio(input_filename, output_filename):
     fs = 22050
-    f0, mcc, ap, fs, frame_period = decompose_wav(input_filename, fs)
+    f0, mcc, ap, fs, frame_period = decomposeWav(input_filename, fs)
     log_f0 = np.log(f0 + 1e-5)
     log_f0[np.isneginf(log_f0)] = np.nan
     mean_log_f0 = np.nanmean(log_f0)
@@ -77,10 +68,7 @@ def process_audio(input_filename, output_filename):
     tf = mcc.shape[0]
     np.savez(output_filename, norm_log_f0 = norm_log_f0, mean_log_f0 = mean_log_f0, std_log_f0 = std_log_f0, mcc = mcc, source_parameter = ap, time_frames = tf)
 
-input_directory = "C:/Users/adria/Desktop/test/audio"
-batch_process_audio(input_directory)
-
-def resize_batch_audio(input_dir):
+def resizeBatchAudio(input_dir):
     parent_dir = os.path.dirname(input_dir)
     output_dir = os.path.join(parent_dir, 'resized_audio')
     if not os.path.exists(output_dir):
@@ -109,7 +97,13 @@ def resize_batch_audio(input_dir):
             norm_log_f0 = zoom(norm_log_f0, (512 / norm_log_f0.size,), order = 1)
             np.savez(output_filename, norm_log_f0 = norm_log_f0, mean_log_f0 = mean_log_f0, std_log_f0 = std_log_f0, mcc = mcc, source_parameter = source_parameter, time_frames = tf)
 
+# process_wav("C:/Users/adria/Desktop/test/audio/VCC2SF1/10001.wav", "C:/Users/adria/Desktop/test/audio/VCC2SF1/output.wav", fs = 22050, frame_period = 5.0, mcc_dim = 36)
 
-#
-# input_directory = "C:/Users/adria/Desktop/test/transformed_audio"
-# resize_batch_audio(input_directory)
+# batch_process_audio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/training_data/audio")
+# batch_process_audio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/reference_data/audio")
+# batch_process_audio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/evaluation_data/audio")
+
+# resize_batch_audio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/training_data/transformed_audio")
+# resize_batch_audio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/reference_data/transformed_audio")
+# resize_batch_audio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/evaluation_data/transformed_audio")
+

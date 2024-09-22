@@ -33,9 +33,9 @@ class Generator(nn.Module):
 
         self.deconv = nn.ConvTranspose2d(in_channels = conv_dim,
                                          out_channels = self.out_channels,
-                                         kernel_size = (9, 9),
+                                         kernel_size = (3, 11),
                                          stride = (1, 1),
-                                         padding = (0, 0))
+                                         padding = (0, 2))
 
     @staticmethod
     def _down_block(in_channels, kernel_size, out_channels, stride):
@@ -45,7 +45,7 @@ class Generator(nn.Module):
                       out_channels = out_channels,
                       kernel_size = kernel_size,
                       stride = stride,
-                      padding = 1),
+                      padding = 2),
             nn.BatchNorm2d(out_channels, affine = True, track_running_stats = True),
             nn.GLU(dim = 1))
 
@@ -57,7 +57,7 @@ class Generator(nn.Module):
                       out_channels = out_channels,
                       kernel_size = kernel_size,
                       stride = stride,
-                      padding = 1),
+                      padding = 2),
             nn.BatchNorm2d(out_channels, affine = True, track_running_stats = True),
             nn.GLU(dim = 1))
 

@@ -4,11 +4,14 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="3c7c1e80-1b1c-4a63-93d6-65b38cea8e2e" name="Changes" comment="correctly upsized, but too much data is lost, maybe data shouldnt be upscaled this way, past 36 coeffs and fill empty">
-      <change afterPath="$PROJECT_DIR$/utils.py" afterDir="false" />
+    <list default="true" id="3c7c1e80-1b1c-4a63-93d6-65b38cea8e2e" name="Changes" comment="before abandoning matlab WORLD vocoder">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/audio_dataset.py" beforeDir="false" afterPath="$PROJECT_DIR$/audio_dataset.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/discriminator.py" beforeDir="false" afterPath="$PROJECT_DIR$/discriminator.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/generator.py" beforeDir="false" afterPath="$PROJECT_DIR$/generator.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/model.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/utility.py" beforeDir="false" afterPath="$PROJECT_DIR$/utility.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utility.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -137,7 +140,7 @@
       <workItem from="1726906407957" duration="9071000" />
       <workItem from="1726920356698" duration="2666000" />
       <workItem from="1726923370997" duration="179000" />
-      <workItem from="1726995511068" duration="9151000" />
+      <workItem from="1726995511068" duration="15591000" />
     </task>
     <task id="LOCAL-00001" summary="before changes in architecture">
       <option name="closed" value="true" />
@@ -219,7 +222,15 @@
       <option name="project" value="LOCAL" />
       <updated>1726906490483</updated>
     </task>
-    <option name="localTasksCounter" value="11" />
+    <task id="LOCAL-00011" summary="before abandoning matlab WORLD vocoder">
+      <option name="closed" value="true" />
+      <created>1727005817937</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1727005817938</updated>
+    </task>
+    <option name="localTasksCounter" value="12" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -236,11 +247,12 @@
     <MESSAGE value="struggling with dimensions of mcc, now works, but spectral envelope has reversed axes in python" />
     <MESSAGE value="problem with the simplest sound reconstruction" />
     <MESSAGE value="correctly upsized, but too much data is lost, maybe data shouldnt be upscaled this way, past 36 coeffs and fill empty" />
-    <option name="LAST_COMMIT_MESSAGE" value="correctly upsized, but too much data is lost, maybe data shouldnt be upscaled this way, past 36 coeffs and fill empty" />
+    <MESSAGE value="before abandoning matlab WORLD vocoder" />
+    <option name="LAST_COMMIT_MESSAGE" value="before abandoning matlab WORLD vocoder" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/voice_changer$model.coverage" NAME="model Coverage Results" MODIFIED="1727005156911" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/voice_changer$utils.coverage" NAME="utils Coverage Results" MODIFIED="1727005725365" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/voice_changer$utils.coverage" NAME="utils Coverage Results" MODIFIED="1727006130667" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/voice_changer$model.coverage" NAME="model Coverage Results" MODIFIED="1727015691451" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/voice_changer$audio_dataset.coverage" NAME="audio_dataset Coverage Results" MODIFIED="1725388259819" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/voice_changer$utility.coverage" NAME="utility Coverage Results" MODIFIED="1726997726401" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/voice_changer$generator.coverage" NAME="generator Coverage Results" MODIFIED="1726778539609" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
