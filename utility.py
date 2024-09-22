@@ -67,8 +67,7 @@ def process_wav_file(wav_path):
 
     # there is a risk that when transposed it is now backwards
     ap = pw.d4c(x, f0, t, fs)
-    print(f0.shape, sp.shape, ap.shape)
-    return f0, sp, ap, fs
+    return f0, sp2, ap, fs
 
 
 def reverse_mcc_to_spectral(mcc):
@@ -89,35 +88,35 @@ def reverse_mcc_to_spectral(mcc):
 
     return spectral_parameters
 
-f0, sp, ap, fs = process_wav_file("C:/Users/adria/Desktop/test/audio/VCC2SF1/10001.wav")
+# f0, sp, ap, fs = process_wav_file("C:/Users/adria/Desktop/test/audio/VCC2SF1/10001.wav")
+#
+#
+# y = pw.synthesize(f0, sp, ap, fs)
+#
+# plt.plot(f0)
+# plt.title('Pitch Contour (f0)')
+# plt.xlabel('Time Frames')
+# plt.ylabel('Pitch (Hz)')
+# plt.grid(True)
+# plt.show()
+#
+# plt.imshow(sp, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
+# plt.colorbar()
+# plt.title('Original Spectrogram')
+# plt.xlabel('Time Frames')
+# plt.ylabel('MCC Coefficients')
+# plt.show()
+#
+# plt.imshow(ap, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
+# plt.colorbar()
+# plt.title('Aperiodicity')
+# plt.xlabel('Time Frames')
+# plt.ylabel('val')
+# plt.show()
+# sf.write("reassembled.wav", y, fs)
 
-
-y = pw.synthesize(f0, sp, ap, fs)
-
-plt.plot(f0)
-plt.title('Pitch Contour (f0)')
-plt.xlabel('Time Frames')
-plt.ylabel('Pitch (Hz)')
-plt.grid(True)
-plt.show()
-
-plt.imshow(sp, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
-plt.colorbar()
-plt.title('Original Spectrogram')
-plt.xlabel('Time Frames')
-plt.ylabel('MCC Coefficients')
-plt.show()
-
-plt.imshow(ap, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
-plt.colorbar()
-plt.title('Aperiodicity')
-plt.xlabel('Time Frames')
-plt.ylabel('val')
-plt.show()
-sf.write("reassembled.wav", y, fs)
-
-# mat_data = scipy.io.loadmat("C:/Users/adria/Desktop/test/resized_audio/VCC2SF1/10001.wav.mat")
-# mcc = mat_data['mcc']
+# mat_data = scipy.io.loadmat("C:/Users/adria/Desktop/test/transformed_audio/VCC2SF1/10001.wav.mat")
+# mcc = mat_data['mcc'].T
 # print(mcc.shape)
 # print(mat_data['original_mcc_size'])
 # print(mat_data['source_parameter']['aperiodicity'][0][0].shape)
@@ -126,7 +125,7 @@ sf.write("reassembled.wav", y, fs)
 # spectral_envelope = np.exp(spectral_envelope)
 # spectral_envelope = spectral_envelope.astype(np.float64)
 # plt.subplot(1, 2, 2)
-# plt.imshow(spectral_envelope, aspect='auto', origin='lower', cmap='viridis')
+# plt.imshow(mcc, aspect='auto', origin='lower', cmap='viridis')
 # plt.colorbar()
 # plt.title('from mat MCC')
 # plt.xlabel('Time Frames')

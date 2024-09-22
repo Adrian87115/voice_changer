@@ -9,6 +9,7 @@ import pyworld as pw
 import matplotlib.pyplot as plt
 import scipy.io
 from scipy.fftpack import idct
+from scipy.io import wavfile
 from scipy.ndimage import zoom
 from scipy.interpolate import interp1d
 import soundfile as sf
@@ -17,6 +18,7 @@ import discriminator as d
 import domain_classifier as dc
 import audio_dataset as ad
 import utility as u
+import utils as ut
 import warnings
 import torchvision.transforms.functional as f
 import torchvision
@@ -195,74 +197,86 @@ class Model():
     def voiceToTarget(self, target_label, path_to_source_data, f0, sp):
         self.loadModel()
         self.generator.eval()
-        mat_data = scipy.io.loadmat(path_to_source_data)
-        norm_log_f0 = mat_data['norm_log_f0']
-        mean_log_f0 = mat_data['mean_log_f0']
-        std_log_f0 = mat_data['std_log_f0']
-        mcc = mat_data['mcc']
-        source_parameter = mat_data['source_parameter']
-        original_mcc_size = mat_data['original_mcc_size'][0]
+        data = np.load(path_to_source_data)
+        norm_log_f0 = data['norm_log_f0']
+        mean_log_f0 = data['mean_log_f0']
+        std_log_f0 = data['std_log_f0']
+        mcc = data['mcc']
+        print(mcc.shape)
+        ap = data['source_parameter']
+        tf = data['time_frames']
+        mcc_zoom_factor = (tf / mcc.shape[0], 1)  # Resize mcc
+        norm_log_f0_zoom_factor = (tf / norm_log_f0.size,)  # Resize norm_log_f0
 
-        x_old = np.linspace(0, 1, 512)
-        x_new = np.linspace(0, 1, original_mcc_size[1])
-        norm_log_f0 = interp1d(x_old, norm_log_f0, kind='linear')(x_new)
-        norm_log_f0 = np.reshape(norm_log_f0, (norm_log_f0.shape[1],))
+        # Resize the MCC and normalized log F0
+        mcc = zoom(mcc, mcc_zoom_factor, order=1)
+        norm_log_f0 = zoom(norm_log_f0, norm_log_f0_zoom_factor, order=1)
+        log_f0 = mean_log_f0 + std_log_f0 * norm_log_f0
+        f0_target = np.exp(log_f0) - 1e-5  # Avoid negative value
 
-        target_emb = ad.getSpeakerEmbeddingFromLabel(target_label)
-        target_emb = torch.tensor(target_emb, dtype=torch.float32).to(self.device)
-        mcc_tensor = torch.tensor(mcc, dtype=torch.float32).unsqueeze(0).to(self.device)
-        with torch.no_grad():
-            fake_mcc = self.generator(mcc_tensor, target_emb)
-        mcc_tensor = mcc_tensor.unsqueeze(0)
-        # firstly make from mcc spectral parameter, and then upsize
 
-        mcc_tensor = mcc_tensor.cpu().numpy().squeeze(0).squeeze(0)
-        spectral_envelope = idct(mcc_tensor, type=2, axis=0, norm='ortho')
-        spectral_envelope = np.exp(spectral_envelope)
-        spectral_envelope = spectral_envelope.astype(np.float64)
+        synthesized_wav = ut.reassemble_wav(f0_target, mcc, ap, 22050, 5)
+        print("synnthesized wav")
+        output_file = f"out_synthesized.wav"
+        ut.save_wav(synthesized_wav, output_file, 22050)
+        print("saved")
 
-        zoom_factors = [n / o for n, o in zip(original_mcc_size, spectral_envelope.shape)]
+        # x_old = np.linspace(0, 1, 512)
+        # x_new = np.linspace(0, 1, original_mcc_size[1])
+        # norm_log_f0 = interp1d(x_old, norm_log_f0, kind='linear')(x_new)
+        # norm_log_f0 = np.reshape(norm_log_f0, (norm_log_f0.shape[1],))
+        #
+        # target_emb = ad.getSpeakerEmbeddingFromLabel(target_label)
+        # target_emb = torch.tensor(target_emb, dtype=torch.float32).to(self.device)
+        # mcc_tensor = torch.tensor(mcc, dtype=torch.float32).unsqueeze(0).to(self.device)
+        # with torch.no_grad():
+        #     fake_mcc = self.generator(mcc_tensor, target_emb)
+        # mcc_tensor = mcc_tensor.unsqueeze(0)
+        # # firstly make from mcc spectral parameter, and then upsize
+        #
+        # mcc_tensor = mcc_tensor.cpu().numpy().squeeze(0).squeeze(0)
+        # spectral_envelope = idct(mcc_tensor, type=2, axis=0, norm='ortho')
+        # spectral_envelope = np.exp(spectral_envelope)
+        # spectral_envelope = spectral_envelope.astype(np.float64)
+        # zoom_factors = [n / o for n, o in zip(original_mcc_size, spectral_envelope.shape)]
+        # spectral_envelope = zoom(spectral_envelope, zoom_factors, order=1)
+        # spectral_envelope = spectral_envelope.T
+        # spectral_envelope = np.ascontiguousarray(spectral_envelope)
+        #
+        # aperiodicity = np.array(source_parameter['aperiodicity'][0][0]).T
+        #
+        # fs = 22050
+        # f0 = u.normLogTof0(norm_log_f0, mean_log_f0, std_log_f0)
+        # print(f0.shape, spectral_envelope.shape, aperiodicity.shape)
+        # plt.plot(f0)
+        # plt.title('Pitch Contour (f0)')
+        # plt.xlabel('Time Frames')
+        # plt.ylabel('Pitch (Hz)')
+        # plt.grid(True)
+        # plt.show()
+        #
+        # plt.imshow(mcc, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
+        # plt.colorbar()
+        # plt.title('Original Spectrogram')
+        # plt.xlabel('Time Frames')
+        # plt.ylabel('MCC Coefficients')
+        # plt.show()
+        #
+        # plt.imshow(aperiodicity, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
+        # plt.colorbar()
+        # plt.title('Aperiodicity')
+        # plt.xlabel('Time Frames')
+        # plt.ylabel('val')
+        # plt.show()
+        # synthesized_wave = pw.synthesize(f0, spectral_envelope, aperiodicity, fs)
+        # sf.write("output_wave.wav", synthesized_wave, fs)
+        # print("finish")
 
-        # Resize the spectral envelope using zoom
-        spectral_envelope = zoom(spectral_envelope, zoom_factors, order=1)
-        # spectral_envelope = f.resize(spectral_envelope, original_mcc_size,
-        #                         interpolation=torchvision.transforms.InterpolationMode.BICUBIC)  # test if works correctly with passing original mcc
-        spectral_envelope = spectral_envelope.T
-        spectral_envelope = np.ascontiguousarray(spectral_envelope)
-
-        aperiodicity = np.array(source_parameter['aperiodicity'][0][0]).T
-
-        fs = 22050
-        f0 = u.normLogTof0(norm_log_f0, mean_log_f0, std_log_f0)
-        print(f0.shape, spectral_envelope.shape, aperiodicity.shape)
-        plt.plot(f0)
-        plt.title('Pitch Contour (f0)')
-        plt.xlabel('Time Frames')
-        plt.ylabel('Pitch (Hz)')
-        plt.grid(True)
-        plt.show()
-
-        plt.imshow(spectral_envelope, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
-        plt.colorbar()
-        plt.title('Original Spectrogram')
-        plt.xlabel('Time Frames')
-        plt.ylabel('MCC Coefficients')
-        plt.show()
-
-        plt.imshow(aperiodicity, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
-        plt.colorbar()
-        plt.title('Aperiodicity')
-        plt.xlabel('Time Frames')
-        plt.ylabel('val')
-        plt.show()
-        synthesized_wave = pw.synthesize(f0, spectral_envelope, aperiodicity, fs)
-        sf.write("output_wave.wav", synthesized_wave, fs)
-        print("finish")
 
 # cost function in my opinion sucks
 f0, sp, ap, fs = u.process_wav_file("C:/Users/adria/Desktop/test/audio/VCC2SF1/10001.wav")
 model = Model()
 # model.train()
 # model.voiceToTarget("VCC2TF2", "reference_data/resized_audio/VCC2TF1/30002.wav.mat")
-model.voiceToTarget("VCC2TF2", "C:/Users/adria/Desktop/test/resized_audio/VCC2SF1/10001.wav.mat", f0, sp)
+model.voiceToTarget("VCC2TF2", "C:/Users/adria/Desktop/test/resized_audio/VCC2SF1/10001.wav.npz", f0, sp)
 #  still spectral parameter is a trash and sound is off
