@@ -3,33 +3,24 @@ import torch.optim as optim
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 from torch.optim.lr_scheduler import StepLR
-import random
 import numpy as np
-import pyworld as pw
-import matplotlib.pyplot as plt
-import scipy.io
-from scipy.fftpack import idct
-from scipy.io import wavfile
 from scipy.ndimage import zoom
-from scipy.interpolate import interp1d
-import soundfile as sf
 import generator as g
 import discriminator as d
 import domain_classifier as dc
 import audio_dataset as ad
 import utils as u
 import warnings
-import torchvision.transforms.functional as f
-import torchvision
+import matplotlib.pyplot as plt
 warnings.filterwarnings("ignore")
-
+# ATTRIBUTE IS THE LABEL!!!!!!!!
 class Model():
     def __init__(self):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.num_source_speakers = 8
         self.num_target_speakers = 4
         self.getData()
-        self.generator = g.Generator(self.train_dataset.num_speakers).to(self.device)# maybe the problem is with giving id which will be used only once, maybe instead it should have only 4 from target, or not following the feeding architecture(gen to disc etc), or not using attributes in architecture of networks
+        self.generator = g.Generator().to(self.device)# maybe the problem is with giving id which will be used only once, maybe instead it should have only 4 from target, or not following the feeding architecture(gen to disc etc), or not using attributes in architecture of networks
         self.discriminator = d.Discriminator().to(self.device)
         self.domain_classifier = dc.DomainClassifier(self.num_target_speakers).to(self.device)
         self.g_optimizer = optim.Adam(self.generator.parameters(), lr=0.01, betas=(0.5, 0.999))
@@ -45,7 +36,7 @@ class Model():
         self.top_score = float('inf')
 
     def saveModel(self):
-        file_path = "saved_model.pth"
+        file_path = "saved_model2.pth"
         torch.save({
             'generator_state_dict': self.generator.state_dict(),
             'discriminator_state_dict': self.discriminator.state_dict(),
@@ -56,7 +47,7 @@ class Model():
             'top_score': self.top_score}, file_path)
 
     def loadModel(self):
-        file_path = "saved_model.pth"
+        file_path = "saved_model2.pth"
         checkpoint = torch.load(file_path)
         self.generator.load_state_dict(checkpoint['generator_state_dict'])
         self.discriminator.load_state_dict(checkpoint['discriminator_state_dict'])
@@ -123,60 +114,46 @@ class Model():
             for i, source_sample in enumerate(self.source_loader):
                 source_mcc_batch, source_speaker_id_batch = source_sample
                 batch_size = source_mcc_batch.size(0)
-
-                for j in range(batch_size):
-                    # Source MCC and speaker ID
+                for j in range(batch_size):# compiles, but in testing it is clearly pathetic, improve training loop to actually calculate costs
                     source_mcc = source_mcc_batch[j].unsqueeze(0).to(self.device)
                     source_speaker_id = source_speaker_id_batch[j].unsqueeze(0).to(self.device)
-
-                    # Get the source speaker embedding
                     source_speaker_label = self.train_dataset.labels[source_speaker_id.item()]
-                    source_emb = self.train_dataset.speaker_emb[source_speaker_label]
+                    source_emb = self.train_dataset.one_hot_labels[source_speaker_label]
 
-                    # Select a random target speaker ID and get its embedding
                     target_speaker_id = torch.randint(0, self.num_target_speakers, (1,)).to(self.device)
-                    target_speaker_label = self.train_dataset.labels[
-                        target_speaker_id.item() + self.num_source_speakers]  # Target speakers start after source
-                    target_emb = self.train_dataset.speaker_emb[target_speaker_label]
-                    # Generate fake MCC for the target speaker
-                    fake_mcc = self.generator(source_mcc, target_emb)
+                    target_speaker_label = ad.target_labels[target_speaker_id]
+                    target_emb = self.train_dataset.one_hot_labels[target_speaker_label]
 
-                    # Train the discriminator
-                    real_validity = self.discriminator(source_mcc)
-                    fake_validity = self.discriminator(fake_mcc.detach())
+                    fake_mcc = self.generator(source_mcc, target_emb)# target label + source mcc
 
-                    # Adversarial loss for real and fake samples
+                    real_validity = self.discriminator(source_mcc, target_emb)
+                    fake_validity = self.discriminator(fake_mcc.detach(), target_emb)
+
                     d_loss_real = self.criterion_adv(real_validity, torch.ones_like(real_validity))
                     d_loss_fake = self.criterion_adv(fake_validity, torch.zeros_like(fake_validity))
                     d_loss = (d_loss_real + d_loss_fake) / 2
 
-                    # Update discriminator
                     self.d_optimizer.zero_grad()
                     d_loss.backward()
                     self.d_optimizer.step()
 
-                    # Train the generator and domain classifier
-                    fake_validity = self.discriminator(fake_mcc)
+
+                    fake_validity = self.discriminator(fake_mcc, target_emb)
                     g_adv_loss = self.criterion_adv(fake_validity, torch.ones_like(fake_validity))
 
-                    # Cycle consistency loss (reconstruct source MCC from fake MCC)
                     rec_mcc = self.generator(fake_mcc, target_emb)
                     cycle_loss = self.criterion_cycle(rec_mcc, source_mcc)
 
-                    # Identity loss (identity mapping should return same MCC using source embedding)
-                    id_mcc = self.generator(source_mcc, source_emb)
+                    id_mcc = self.generator(source_mcc, source_emb)# fake mcc + source label
                     id_loss = self.criterion_identity(id_mcc, source_mcc)
 
-                    # Fix: Classification loss only for the target speakers
-                    cls_loss = self.criterion_cls(self.domain_classifier(fake_mcc), target_speaker_id)
+                    cls_loss = self.criterion_cls(self.domain_classifier(fake_mcc), target_speaker_id)#fake mcc
 
-                    # Total generator loss
                     g_loss = g_adv_loss + cycle_loss * 10 + id_loss * 5 + cls_loss
                     if g_loss < self.top_score:
                         self.top_score = g_loss
                         self.saveModel()
 
-                    # Update generator and domain classifier
                     self.g_optimizer.zero_grad()
                     self.c_optimizer.zero_grad()
                     g_loss.backward()
@@ -186,11 +163,38 @@ class Model():
                 print(f"Epoch [{epoch + 1}/{num_epochs}] Batch {i + 1}/{len(self.source_loader)}: "
                       f"D Loss: {d_loss.item():.4f}, G Loss: {g_loss.item():.4f}, CLS Loss: {cls_loss.item():.4f}")
 
-            print(f"Epoch [{epoch + 1}/{num_epochs}] completed.")
+            eval_loss, accuracy = self.evaluate()
+            print(f"Epoch [{epoch + 1}/{num_epochs}] completed. Evaluation Loss: {eval_loss:.4f}, Accuracy: {accuracy:.2f}%")
             self.g_scheduler.step()
             self.d_scheduler.step()
             self.c_scheduler.step()
             print("min: ", self.top_score)
+
+    def evaluate(self):
+        self.generator.eval()
+        self.domain_classifier.eval()
+        eval_loss = 0.0
+        correct = 0
+        total = 0
+        with torch.no_grad():
+            for i, eval_sample in enumerate(self.eval_loader):
+                eval_mcc_batch, eval_speaker_id_batch = eval_sample
+                batch_size = eval_mcc_batch.size(0)
+                for j in range(batch_size):
+                    eval_mcc = eval_mcc_batch[j].unsqueeze(0).to(self.device)
+                    target_speaker_id = torch.randint(0, self.num_target_speakers, (1,)).to(self.device)
+                    target_speaker_label = ad.target_labels[target_speaker_id]
+                    target_emb = self.train_dataset.one_hot_labels[target_speaker_label]
+                    fake_mcc = self.generator(eval_mcc, target_emb)
+                    predicted_speaker_logits = self.domain_classifier(fake_mcc)
+                    cls_loss = self.criterion_cls(predicted_speaker_logits, target_speaker_id)
+                    eval_loss += cls_loss.item()
+                    predicted_speaker_id = torch.argmax(predicted_speaker_logits, dim=1)
+                    correct += (predicted_speaker_id == target_speaker_id).sum().item()
+                    total += batch_size
+        avg_eval_loss = eval_loss / total
+        accuracy = correct / total * 100
+        return avg_eval_loss, accuracy
 
     def voiceToTarget(self, target_label, path_to_source_data):
         self.loadModel()
@@ -209,11 +213,15 @@ class Model():
         log_f0 = mean_log_f0 + std_log_f0 * norm_log_f0
         f0_target = np.exp(log_f0) - 1e-5
 
-        target_emb = ad.getSpeakerEmbeddingFromLabel(target_label)
+        target_emb = ad.getSpeakerOneHotFromLabel(target_label)
         target_emb = torch.tensor(target_emb, dtype=torch.float32).to(self.device)
         mcc_tensor = torch.tensor(mcc, dtype=torch.float32).unsqueeze(0).to(self.device)
         with torch.no_grad():
             fake_mcc = self.generator(mcc_tensor, target_emb)
+            predicted_speaker_logits = self.domain_classifier(fake_mcc)
+            predicted_speaker_id = torch.argmax(predicted_speaker_logits, dim=1).item()  # Get the predicted speaker ID
+            predicted_speaker_label = ad.target_labels[predicted_speaker_id]
+            print(f"Synthesized audio is predicted to correspond to speaker: {predicted_speaker_label}")
         fake_mcc = fake_mcc.squeeze(0).squeeze(0)
         fake_mcc = fake_mcc.cpu().numpy()
 
@@ -224,31 +232,40 @@ class Model():
         synthesized_wav = u.reassembleWav(f0_target, fake_mcc, ap, 22050, 5)
         u.saveWav(synthesized_wav, "out_synthesized.wav", 22050)
 
-        # plt.plot(target_f0)
-        # plt.title('Pitch Contour (f0)')
-        # plt.xlabel('Time Frames')
-        # plt.ylabel('Pitch (Hz)')
-        # plt.grid(True)
-        # plt.show()
+        plt.plot(f0_target)
+        plt.title('Pitch Contour (f0)')
+        plt.xlabel('Time Frames')
+        plt.ylabel('Pitch (Hz)')
+        plt.grid(True)
+        plt.show()
 
-        # plt.imshow(fake_mcc, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
-        # plt.colorbar()
-        # plt.title('Original Spectrogram')
-        # plt.xlabel('Time Frames')
-        # plt.ylabel('MCC Coefficients')
-        # plt.show()
+        plt.imshow(fake_mcc, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
+        plt.colorbar()
+        plt.title('Fake Spectrogram')
+        plt.xlabel('Time Frames')
+        plt.ylabel('MCC Coefficients')
+        plt.show()
 
-        # plt.imshow(aperiodicity, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
-        # plt.colorbar()
-        # plt.title('Aperiodicity')
-        # plt.xlabel('Time Frames')
-        # plt.ylabel('val')
-        # plt.show()
+        plt.imshow(mcc, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
+        plt.colorbar()
+        plt.title('Original Spectrogram')
+        plt.xlabel('Time Frames')
+        plt.ylabel('MCC Coefficients')
+        plt.show()
+
+        plt.imshow(ap, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
+        plt.colorbar()
+        plt.title('Aperiodicity')
+        plt.xlabel('Time Frames')
+        plt.ylabel('val')
+        plt.show()
 
 
 
 model = Model()
-# model.train()
-model.voiceToTarget("VCC2TF2", "C:/Users/adria/Desktop/test/resized_audio/VCC2SF1/10001.npz")
-# fake mcc is way too much generalized
-# cost function in my opinion sucks
+model.train()
+# model.voiceToTarget("VCC2TF2", "C:/Users/adria/Desktop/test/resized_audio/VCC2SF1/10001.npz")
+# archiecture with atribute c - target label
+# eval data
+# proper from the image learning loop
+# when training on targets, target can not be chosen for the matching source

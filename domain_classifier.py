@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 class DomainClassifier(nn.Module):
-    def __init__(self, num_target_speakers, conv_dim = 8):
+    def __init__(self, num_target_speakers = 4, conv_dim = 8):
         super(DomainClassifier, self).__init__()
         self.in_channels = 1
         self.out_channels = 1

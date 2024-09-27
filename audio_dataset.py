@@ -18,13 +18,18 @@ all_labels = ["VCC2SF1",
               "VCC2TM1",
               "VCC2TM2"]
 
+target_labels = ["VCC2TF1",
+                 "VCC2TF2",
+                 "VCC2TM1",
+                 "VCC2TM2"]
+
 class AudioDataset(Dataset):
     def __init__(self, root_dir):
         self.root_dir = root_dir
         self.file_list = None
         self.labels = []
         self.unique_labels = None
-        self.speaker_emb = {}
+        self.one_hot_labels = {}
         self.norm_log_f0 = None
         self.mcc = None
         self.source_parameter = None
@@ -67,38 +72,35 @@ class AudioDataset(Dataset):
         self.mcc = mcc_list
         self.source_parameter = source_parameter_list
         self.time_frames_list = time_frames_list
-        self.labelEmb()
+        self.generateOneHotLabels()
 
-    def labelEmb(self):
-        global all_labels
-        for label in self.labels:
-            if label in all_labels:
-                label_index = all_labels.index(label)  # Get the index from the global list
-                speaker_embedding = torch.zeros(1, 1, 512, 36,
-                                                device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
-                row = label_index % 512
-                col = label_index % 36
-                speaker_embedding[0, 0, row, col] = 1
-                self.speaker_emb[label] = speaker_embedding
+    def generateOneHotLabels(self):
+        num_labels = self.num_speakers
+        for idx, label in enumerate(self.unique_labels):
+            one_hot = torch.zeros(num_labels, device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
+            one_hot[idx] = 1.0  # Set the one-hot position for the current label
+            self.one_hot_labels[label] = one_hot
+
 
     def __getitem__(self, idx):
         mcc = torch.tensor(self.mcc[idx], dtype=torch.float32)
-        speaker_id = all_labels.index(self.labels[idx])
-        return mcc, torch.tensor(speaker_id, dtype=torch.long)
+        label = self.labels[idx]
+        if label in self.one_hot_labels:
+            one_hot_label = self.one_hot_labels[label]
+        else:
+            one_hot_label = None
+        return mcc, one_hot_label
 
     def __len__(self):
         return len(self.file_list)
 
-    def getSpeakerEmbedding(self, label):
-        return self.speaker_emb[label]
+    def getSpeakerOneHot(self, label):
+        return self.one_hot_labels[label]
 
-def getSpeakerEmbeddingFromLabel(label):
+def getSpeakerOneHotFromLabel(label):
     global all_labels
-    if label not in all_labels:
-        raise ValueError(f"Label '{label}' not found in the list of speakers.")
+    num_labels = len(all_labels)
+    one_hot = torch.zeros(num_labels, device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
     label_index = all_labels.index(label)
-    embedding = torch.zeros(1, 1, 512, 36, device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
-    row = label_index % 512
-    col = label_index % 36
-    embedding[0, 0, row, col] = 1
-    return embedding
+    one_hot[label_index] = 1.0
+    return one_hot
