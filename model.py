@@ -12,6 +12,7 @@ import audio_dataset as ad
 import utils as u
 import warnings
 import matplotlib.pyplot as plt
+import itertools
 warnings.filterwarnings("ignore")
 # ATTRIBUTE IS THE LABEL!!!!!!!!
 class Model():
@@ -80,28 +81,19 @@ class Model():
         eval_labels = labelsToTensor(self.eval_dataset.labels)
         ref_labels = labelsToTensor(self.ref_dataset.labels)
 
-        train_dataset = TensorDataset(train_mcc, train_labels)
         eval_dataset = TensorDataset(eval_mcc, eval_labels)
         ref_dataset = TensorDataset(ref_mcc, ref_labels)
 
         source_indices = torch.where(train_labels < self.num_source_speakers)[0]
-        target_indices = torch.where((train_labels >= self.num_target_speakers) & (train_labels < self.train_dataset.num_speakers))[0]
-
+        target_indices = torch.where((train_labels >= self.num_source_speakers) & (train_labels < self.num_source_speakers + self.num_target_speakers))[0]
         source_mcc = train_mcc[source_indices]
         source_labels = train_labels[source_indices]
-
         target_mcc = train_mcc[target_indices]
         target_labels = train_labels[target_indices]
-
         source_dataset = TensorDataset(source_mcc, source_labels)
         target_dataset = TensorDataset(target_mcc, target_labels)
-
         self.source_loader = DataLoader(source_dataset, batch_size=16, shuffle=True)
         self.target_loader = DataLoader(target_dataset, batch_size=16, shuffle=True)
-
-        eval_dataset = TensorDataset(eval_mcc, eval_labels)
-        ref_dataset = TensorDataset(ref_mcc, ref_labels)
-
         self.eval_loader = DataLoader(eval_dataset, batch_size=16, shuffle=False)
         self.ref_loader = DataLoader(ref_dataset, batch_size=16, shuffle=False)
 
@@ -109,12 +101,23 @@ class Model():
         if load_state:
             self.loadModel()
         print("Training model...")
+        target_iter = itertools.cycle(self.target_loader)
 
         for epoch in range(num_epochs):
             for i, source_sample in enumerate(self.source_loader):
+                target_sample = next(target_iter)
                 source_mcc_batch, source_speaker_id_batch = source_sample
+                target_mcc_batch, target_speaker_id_batch = target_sample
                 batch_size = source_mcc_batch.size(0)
-                for j in range(batch_size):# compiles, but in testing it is clearly pathetic, improve training loop to actually calculate costs
+                target_batch_size = target_mcc_batch.size(0)
+
+
+                if target_batch_size < batch_size:
+                    repeat_factor = (batch_size + target_batch_size - 1) // target_batch_size
+                    target_mcc_batch = target_mcc_batch.repeat(repeat_factor, 1, 1)[:batch_size]
+                    target_speaker_id_batch = target_speaker_id_batch.repeat(repeat_factor)[:batch_size]
+
+                for j in range(batch_size):
                     source_mcc = source_mcc_batch[j].unsqueeze(0).to(self.device)
                     source_speaker_id = source_speaker_id_batch[j].unsqueeze(0).to(self.device)
                     source_speaker_label = self.train_dataset.labels[source_speaker_id.item()]
@@ -131,11 +134,30 @@ class Model():
 
                     d_loss_real = self.criterion_adv(real_validity, torch.ones_like(real_validity))
                     d_loss_fake = self.criterion_adv(fake_validity, torch.zeros_like(fake_validity))
-                    d_loss = (d_loss_real + d_loss_fake) / 2
+                    d_loss_source = (d_loss_real + d_loss_fake) / 2
 
                     self.d_optimizer.zero_grad()
-                    d_loss.backward()
+                    d_loss_source.backward()
+
+
+
+                    target_mcc = target_mcc_batch[j].unsqueeze(0).to(self.device)
+                    target_speaker_id = target_speaker_id_batch[j].unsqueeze(0).to(self.device)
+
+                    target_speaker_label = ad.all_labels[target_speaker_id]
+
+                    target_emb_disc = self.train_dataset.one_hot_labels[target_speaker_label]
+                    target_speaker_id_disc = target_speaker_id - 8
+                    target_emb_disc = target_emb[8:]
+                    real_validity_target = self.discriminator(target_mcc, target_emb)#target mcc + target label
+                    fake_validity_target = self.discriminator(fake_mcc.detach(), target_emb)#fake mcc + target label
+                    d_loss_real_target = self.criterion_adv(real_validity_target, torch.ones_like(real_validity_target))
+                    d_loss_fake_target = self.criterion_adv(fake_validity_target,
+                                                            torch.zeros_like(fake_validity_target))
+                    d_loss_target = (d_loss_real_target + d_loss_fake_target) / 2
+                    d_loss = (d_loss_source + d_loss_target) / 2
                     self.d_optimizer.step()
+
 
 
                     fake_validity = self.discriminator(fake_mcc, target_emb)
@@ -147,9 +169,10 @@ class Model():
                     id_mcc = self.generator(source_mcc, source_emb)# fake mcc + source label
                     id_loss = self.criterion_identity(id_mcc, source_mcc)
 
-                    cls_loss = self.criterion_cls(self.domain_classifier(fake_mcc), target_speaker_id)#fake mcc
-
-                    g_loss = g_adv_loss + cycle_loss * 10 + id_loss * 5 + cls_loss
+                    cls_loss_fake = self.criterion_cls(self.domain_classifier(fake_mcc), target_speaker_id_disc)#fake mcc
+                    cls_loss_real = self.criterion_cls(self.domain_classifier(target_mcc), target_speaker_id_disc)# real mcc
+                    cls_loss = (cls_loss_fake + cls_loss_real) / 2
+                    g_loss = g_adv_loss + cycle_loss + id_loss + cls_loss
                     if g_loss < self.top_score:
                         self.top_score = g_loss
                         self.saveModel()
@@ -161,7 +184,7 @@ class Model():
                     self.c_optimizer.step()
 
                 print(f"Epoch [{epoch + 1}/{num_epochs}] Batch {i + 1}/{len(self.source_loader)}: "
-                      f"D Loss: {d_loss.item():.4f}, G Loss: {g_loss.item():.4f}, CLS Loss: {cls_loss.item():.4f}")
+                      f"D Loss: {d_loss.item():.4f}, G Loss: {g_loss.item():.4f}, CLS Loss: {cls_loss.item():.4f}, Cycle Loss: {cycle_loss.item():.4f}")
 
             eval_loss, accuracy = self.evaluate()
             print(f"Epoch [{epoch + 1}/{num_epochs}] completed. Evaluation Loss: {eval_loss:.4f}, Accuracy: {accuracy:.2f}%")
@@ -219,9 +242,12 @@ class Model():
         with torch.no_grad():
             fake_mcc = self.generator(mcc_tensor, target_emb)
             predicted_speaker_logits = self.domain_classifier(fake_mcc)
-            predicted_speaker_id = torch.argmax(predicted_speaker_logits, dim=1).item()  # Get the predicted speaker ID
+            predicted_speaker_id = torch.argmax(predicted_speaker_logits, dim=1).item()
             predicted_speaker_label = ad.target_labels[predicted_speaker_id]
             print(f"Synthesized audio is predicted to correspond to speaker: {predicted_speaker_label}")
+            target_emb = self.train_dataset.one_hot_labels[target_label]
+            is_true = self.discriminator(fake_mcc, target_emb)
+            print(f"Probability synthesized audio is real: {is_true[0].item():.4f}")
         fake_mcc = fake_mcc.squeeze(0).squeeze(0)
         fake_mcc = fake_mcc.cpu().numpy()
 
@@ -263,9 +289,8 @@ class Model():
 
 
 model = Model()
-model.train()
-# model.voiceToTarget("VCC2TF2", "C:/Users/adria/Desktop/test/resized_audio/VCC2SF1/10001.npz")
+# model.train()
+model.voiceToTarget("VCC2TF2", "evaluation_data/resized_audio/VCC2SF1/30001.npz")
 # archiecture with atribute c - target label
 # eval data
-# proper from the image learning loop
-# when training on targets, target can not be chosen for the matching source
+# proper learning loop - check
