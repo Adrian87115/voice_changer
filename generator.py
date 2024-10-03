@@ -52,10 +52,10 @@ class Generator(nn.Module):
 
         self.residual_blocks = nn.Sequential(*[ResidualBlock(5, 5, self.num_speakers) for _ in range(6)])
 
-        self.upsample4 = self._up_block(5, (9, 5), conv_dim * 2, (9, 1))
-        self.upsample3 = self._up_block(conv_dim * 2, (3, 5), conv_dim * 4, (1, 1))
-        self.upsample2 = self._up_block(conv_dim * 4, (4, 8), conv_dim * 2, (2, 2))
-        self.upsample1 = self._up_block(conv_dim * 2, (4, 8), conv_dim, (2, 2))
+        self.upsample4 = self._up_block(5 + self.num_speakers, (9, 5), conv_dim * 2, (9, 1))
+        self.upsample3 = self._up_block(conv_dim * 2 + self.num_speakers, (3, 5), conv_dim * 4, (1, 1))
+        self.upsample2 = self._up_block(conv_dim * 4 + self.num_speakers, (4, 8), conv_dim * 2, (2, 2))
+        self.upsample1 = self._up_block(conv_dim * 2 + self.num_speakers, (4, 8), conv_dim, (2, 2))
 
         self.deconv = nn.ConvTranspose2d(in_channels = conv_dim,
                                          out_channels = self.out_channels,
@@ -87,7 +87,7 @@ class Generator(nn.Module):
             nn.BatchNorm2d(out_channels, affine = True, track_running_stats = True),
             nn.GLU(dim = 1))
 
-    def forward(self, x, c_trg):
+    def forward(self, x, c):
         if len(x.shape) == 3:
             x = x.unsqueeze(1)
 
@@ -96,12 +96,30 @@ class Generator(nn.Module):
         down3 = self.downsample3(down2)
         down4 = self.downsample4(down3)
         down5 = self.downsample5(down4)
-        res = down5
-        for block in self.residual_blocks:
-            res = block(res, c_trg)
-        up4 = self.upsample4(res)
+
+        # res = down5
+        # for block in self.residual_blocks:
+        #     res = block(res, c)
+
+        c1 = c.view(1, c.size(0), 1, 1)
+        c1 = c1.repeat(1, 1, down5.size(2), down5.size(3))
+        down5 = torch.cat([down5, c1], dim = 1)
+        up4 = self.upsample4(down5)
+
+        c2 = c.view(1, c.size(0), 1, 1)
+        c2 = c2.repeat(1, 1, up4.size(2), up4.size(3))
+        up4 = torch.cat([up4, c2], dim = 1)
         up3 = self.upsample3(up4)
+
+        c3 = c.view(1, c.size(0), 1, 1)
+        c3 = c3.repeat(1, 1, up3.size(2), up3.size(3))
+        up3 = torch.cat([up3, c3], dim = 1)
         up2 = self.upsample2(up3)
+
+        c4 = c.view(1, c.size(0), 1, 1)
+        c4 = c4.repeat(1, 1, up2.size(2), up2.size(3))
+        up2 = torch.cat([up2, c4], dim=1)
         up1 = self.upsample1(up2)
+
         deconv = self.deconv(up1)
         return deconv

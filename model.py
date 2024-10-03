@@ -13,6 +13,7 @@ import utils as u
 import warnings
 import matplotlib.pyplot as plt
 import itertools
+torch.autograd.set_detect_anomaly(True)
 warnings.filterwarnings("ignore")
 # ATTRIBUTE IS THE LABEL!!!!!!!!
 class Model():
@@ -21,9 +22,9 @@ class Model():
         self.num_source_speakers = 8
         self.num_target_speakers = 4
         self.getData()
-        self.generator = g.Generator().to(self.device)# maybe the problem is with giving id which will be used only once, maybe instead it should have only 4 from target, or not following the feeding architecture(gen to disc etc), or not using attributes in architecture of networks
+        self.generator = g.Generator().to(self.device)
         self.discriminator = d.Discriminator().to(self.device)
-        self.domain_classifier = dc.DomainClassifier(self.num_target_speakers).to(self.device)
+        self.domain_classifier = dc.DomainClassifier().to(self.device)
         self.g_optimizer = optim.Adam(self.generator.parameters(), lr=0.01, betas=(0.5, 0.999))
         self.d_optimizer = optim.Adam(self.discriminator.parameters(), lr=0.001, betas=(0.5, 0.999))
         self.c_optimizer = optim.Adam(self.domain_classifier.parameters(), lr=0.001, betas=(0.5, 0.999))
@@ -60,7 +61,7 @@ class Model():
 
     def getData(self):
         path_train = "training_data/resized_audio" #first 8 are source, next 4 are target
-        path_eval = "evaluation_data/resized_audio"
+        path_eval = "evaluation_data/resized_audio" #used to evaluate results, the output should be compared to the reference
         path_ref = "reference_data/resized_audio" #used to compare original to created by listening to them
         self.train_dataset = ad.AudioDataset(path_train)
         self.eval_dataset = ad.AudioDataset(path_eval)
@@ -117,74 +118,70 @@ class Model():
                     target_mcc_batch = target_mcc_batch.repeat(repeat_factor, 1, 1)[:batch_size]
                     target_speaker_id_batch = target_speaker_id_batch.repeat(repeat_factor)[:batch_size]
 
+                total_d_loss, total_g_loss, total_dc_loss, total_cycle_loss = 0, 0, 0, 0
                 for j in range(batch_size):
+
+                    #1 source mcc + choosen target label to generator:
                     source_mcc = source_mcc_batch[j].unsqueeze(0).to(self.device)
                     source_speaker_id = source_speaker_id_batch[j].unsqueeze(0).to(self.device)
                     source_speaker_label = self.train_dataset.labels[source_speaker_id.item()]
                     source_emb = self.train_dataset.one_hot_labels[source_speaker_label]
+                    target_speaker_id_to_convert = torch.randint(0, self.num_target_speakers, (1,)).to(self.device)
+                    target_speaker_label_to_convert = ad.target_labels[target_speaker_id_to_convert]
+                    target_emb_to_convert = self.train_dataset.one_hot_labels[target_speaker_label_to_convert]
+                    fake_mcc = self.generator(source_mcc, target_emb_to_convert)
 
-                    target_speaker_id = torch.randint(0, self.num_target_speakers, (1,)).to(self.device)
-                    target_speaker_label = ad.target_labels[target_speaker_id]
-                    target_emb = self.train_dataset.one_hot_labels[target_speaker_label]
-
-                    fake_mcc = self.generator(source_mcc, target_emb)# target label + source mcc
-
-                    real_validity = self.discriminator(source_mcc, target_emb)
-                    fake_validity = self.discriminator(fake_mcc.detach(), target_emb)
-
-                    d_loss_real = self.criterion_adv(real_validity, torch.ones_like(real_validity))
-                    d_loss_fake = self.criterion_adv(fake_validity, torch.zeros_like(fake_validity))
-                    d_loss_source = (d_loss_real + d_loss_fake) / 2
-
-                    self.d_optimizer.zero_grad()
-                    d_loss_source.backward()
-
-
-
-                    target_mcc = target_mcc_batch[j].unsqueeze(0).to(self.device)
-                    target_speaker_id = target_speaker_id_batch[j].unsqueeze(0).to(self.device)
-
-                    target_speaker_label = ad.all_labels[target_speaker_id]
-
-                    target_emb_disc = self.train_dataset.one_hot_labels[target_speaker_label]
-                    target_speaker_id_disc = target_speaker_id - 8
-                    target_emb_disc = target_emb[8:]
-                    real_validity_target = self.discriminator(target_mcc, target_emb)#target mcc + target label
-                    fake_validity_target = self.discriminator(fake_mcc.detach(), target_emb)#fake mcc + target label
-                    d_loss_real_target = self.criterion_adv(real_validity_target, torch.ones_like(real_validity_target))
-                    d_loss_fake_target = self.criterion_adv(fake_validity_target,
-                                                            torch.zeros_like(fake_validity_target))
-                    d_loss_target = (d_loss_real_target + d_loss_fake_target) / 2
-                    d_loss = (d_loss_source + d_loss_target) / 2
-                    self.d_optimizer.step()
-
-
-
-                    fake_validity = self.discriminator(fake_mcc, target_emb)
-                    g_adv_loss = self.criterion_adv(fake_validity, torch.ones_like(fake_validity))
-
-                    rec_mcc = self.generator(fake_mcc, target_emb)
+                    #2 fake mcc + source original label to generator:
+                    rec_mcc = self.generator(fake_mcc, source_emb)
                     cycle_loss = self.criterion_cycle(rec_mcc, source_mcc)
 
-                    id_mcc = self.generator(source_mcc, source_emb)# fake mcc + source label
-                    id_loss = self.criterion_identity(id_mcc, source_mcc)
+                    #3 fake mcc to classifier:
+                    fake_class_pred = self.domain_classifier(fake_mcc)
+                    dc_loss_fake = self.criterion_cls(fake_class_pred, target_speaker_id_to_convert)
 
-                    cls_loss_fake = self.criterion_cls(self.domain_classifier(fake_mcc), target_speaker_id_disc)#fake mcc
-                    cls_loss_real = self.criterion_cls(self.domain_classifier(target_mcc), target_speaker_id_disc)# real mcc
-                    cls_loss = (cls_loss_fake + cls_loss_real) / 2
-                    g_loss = g_adv_loss + cycle_loss + id_loss + cls_loss
-                    if g_loss < self.top_score:
-                        self.top_score = g_loss
-                        self.saveModel()
+                    #4 target real mcc to classifier:
+                    target_real_mcc = target_mcc_batch[j].unsqueeze(0).to(self.device)
+                    target_real_speaker_id = target_speaker_id_batch[j].unsqueeze(0).to(self.device)
+                    target_real_speaker_label = ad.all_labels[target_real_speaker_id]
+                    target_real_emb = ad.getSpeakerOneHotFromLabel(target_real_speaker_label)
+                    target_real_speaker_id = target_real_speaker_id - 8
+                    target_class_pred = self.domain_classifier(target_real_mcc)
+                    dc_loss_real = self.criterion_cls(target_class_pred, target_real_speaker_id)
+
+                    #5 fake mcc + choosen target label to discriminator:
+                    validity_fake = self.discriminator(fake_mcc, target_emb_to_convert[8:])
+                    d_loss_fake = self.criterion_adv(validity_fake, torch.zeros_like(validity_fake))
+
+                    #6 target real mcc + target real label to discriminator:
+                    validity_real = self.discriminator(target_real_mcc, target_real_emb[8:])
+                    d_loss_real = self.criterion_adv(validity_real, torch.ones_like(validity_real))
+
 
                     self.g_optimizer.zero_grad()
+                    self.d_optimizer.zero_grad()
                     self.c_optimizer.zero_grad()
-                    g_loss.backward()
+                    g_loss = self.criterion_adv(validity_fake, torch.ones_like(validity_fake)) + cycle_loss
+                    d_loss = (d_loss_real + d_loss_fake) / 2
+                    dc_loss = (dc_loss_fake + dc_loss_real) / 2
+                    g_loss.backward(retain_graph=True)
+                    d_loss.backward(retain_graph=True)
+                    dc_loss.backward()
                     self.g_optimizer.step()
+                    self.d_optimizer.step()
                     self.c_optimizer.step()
 
+
+                    total_cycle_loss += cycle_loss.item()
+                    total_dc_loss += (dc_loss_fake + dc_loss_real).item() / 2
+                    total_d_loss += (d_loss_real + d_loss_fake).item() / 2
+                    total_g_loss += self.criterion_adv(validity_fake, torch.ones_like(validity_fake)).item()
+                    total_loss = total_cycle_loss + total_dc_loss + total_d_loss + total_g_loss
+                    if total_loss < self.top_score:
+                        self.top_score = total_loss
+                        self.saveModel()
+
                 print(f"Epoch [{epoch + 1}/{num_epochs}] Batch {i + 1}/{len(self.source_loader)}: "
-                      f"D Loss: {d_loss.item():.4f}, G Loss: {g_loss.item():.4f}, CLS Loss: {cls_loss.item():.4f}, Cycle Loss: {cycle_loss.item():.4f}")
+                      f"D Loss: {total_d_loss / batch_size:.4f}, G Loss: {total_g_loss / batch_size:.4f}, CLS Loss: {total_dc_loss / batch_size:.4f}, Cycle Loss: {total_cycle_loss / batch_size:.4f}")
 
             eval_loss, accuracy = self.evaluate()
             print(f"Epoch [{epoch + 1}/{num_epochs}] completed. Evaluation Loss: {eval_loss:.4f}, Accuracy: {accuracy:.2f}%")
@@ -246,7 +243,7 @@ class Model():
             predicted_speaker_label = ad.target_labels[predicted_speaker_id]
             print(f"Synthesized audio is predicted to correspond to speaker: {predicted_speaker_label}")
             target_emb = self.train_dataset.one_hot_labels[target_label]
-            is_true = self.discriminator(fake_mcc, target_emb)
+            is_true = self.discriminator(fake_mcc, target_emb[8:])
             print(f"Probability synthesized audio is real: {is_true[0].item():.4f}")
         fake_mcc = fake_mcc.squeeze(0).squeeze(0)
         fake_mcc = fake_mcc.cpu().numpy()
@@ -285,12 +282,3 @@ class Model():
         plt.xlabel('Time Frames')
         plt.ylabel('val')
         plt.show()
-
-
-
-model = Model()
-# model.train()
-model.voiceToTarget("VCC2TF2", "evaluation_data/resized_audio/VCC2SF1/30001.npz")
-# archiecture with atribute c - target label
-# eval data
-# proper learning loop - check
