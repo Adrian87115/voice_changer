@@ -1,71 +1,27 @@
 import torch
 import torch.nn as nn
 
-class ConditionalInstanceNormalisation(nn.Module):
-    def __init__(self, in_channels, num_speakers):
-        super(ConditionalInstanceNormalisation, self).__init__()
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.in_channels = in_channels
-        self.gamma_t = nn.Linear(num_speakers, in_channels)
-        self.beta_t = nn.Linear(num_speakers, in_channels)
-
-    def forward(self, x, c_trg):
-        u = torch.mean(x, dim = 2, keepdim = True)
-        var = torch.mean((x - u) * (x - u), dim = 2, keepdim = True)
-        std = torch.sqrt(var + 1e-8)
-        gamma = self.gamma_t(c_trg.to(self.device))
-        gamma = gamma.view(-1, self.in_channels, 1, 1)
-        beta = self.beta_t(c_trg.to(self.device))
-        beta = beta.view(-1, self.in_channels, 1, 1)
-        h = (x - u) / std
-        h = h * gamma + beta
-        return h
-
-class ResidualBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, num_speakers):
-        super(ResidualBlock, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size = 3, stride = 1, padding = 1, bias = False)
-        self.cin1 = ConditionalInstanceNormalisation(out_channels, num_speakers)
-        self.relu = nn.ReLU(inplace = True)
-        self.conv2 = nn.Conv2d(in_channels, out_channels, kernel_size = 3, stride = 1, padding = 1, bias = False)
-        self.cin2 = ConditionalInstanceNormalisation(out_channels, num_speakers)
-
-    def forward(self, x, c):
-        out = self.conv1(x)
-        out = self.cin1(out, c)
-        out = self.relu(out)
-        out = self.conv2(out)
-        out = self.cin2(out, c)
-        return self.relu(out + x)
-
 class Generator(nn.Module):
     def __init__(self, conv_dim = 32, num_speakers = 12):
         super(Generator, self).__init__()
         self.num_speakers = num_speakers
-        self.in_channels = 1
-        self.out_channels = 1
-        self.downsample1 = self._down_block(self.in_channels, (3, 9), conv_dim, (1, 1))
-        self.downsample2 = self._down_block(conv_dim, (4, 8), conv_dim * 2, (2, 2))
-        self.downsample3 = self._down_block(conv_dim * 2, (4, 8), conv_dim * 4, (2, 2))
-        self.downsample4 = self._down_block(conv_dim * 4, (3, 5), conv_dim * 2, (1, 1))
-        self.downsample5 = self._down_block(conv_dim * 2, (9, 5), 5, (9, 1))
-
-        self.residual_blocks = nn.Sequential(*[ResidualBlock(5, 5, self.num_speakers) for _ in range(6)])
-
+        self.downsample1 = self._down_block(1, (3, 9), conv_dim * 2, (1, 1))
+        self.downsample2 = self._down_block(conv_dim, (4, 8), conv_dim * 4, (2, 2))
+        self.downsample3 = self._down_block(conv_dim * 2, (4, 8), conv_dim * 8, (2, 2))
+        self.downsample4 = self._down_block(conv_dim * 4, (3, 5), conv_dim * 4, (1, 1))
+        self.downsample5 = self._down_block(conv_dim * 2, (9, 5), 10, (9, 1))
         self.upsample4 = self._up_block(5 + self.num_speakers, (9, 5), conv_dim * 2, (9, 1))
         self.upsample3 = self._up_block(conv_dim * 2 + self.num_speakers, (3, 5), conv_dim * 4, (1, 1))
         self.upsample2 = self._up_block(conv_dim * 4 + self.num_speakers, (4, 8), conv_dim * 2, (2, 2))
         self.upsample1 = self._up_block(conv_dim * 2 + self.num_speakers, (4, 8), conv_dim, (2, 2))
-
-        self.deconv = nn.ConvTranspose2d(in_channels = conv_dim,
-                                         out_channels = self.out_channels,
+        self.deconv = nn.ConvTranspose2d(in_channels = conv_dim + self.num_speakers,
+                                         out_channels = 1,
                                          kernel_size = (3, 11),
                                          stride = (1, 1),
                                          padding = (0, 2))
 
     @staticmethod
     def _down_block(in_channels, kernel_size, out_channels, stride):
-        out_channels = out_channels * 2 #GLU halves the number of channels
         return nn.Sequential(
             nn.Conv2d(in_channels = in_channels,
                       out_channels = out_channels,
@@ -97,29 +53,25 @@ class Generator(nn.Module):
         down4 = self.downsample4(down3)
         down5 = self.downsample5(down4)
 
-        # res = down5
-        # for block in self.residual_blocks:
-        #     res = block(res, c)
+        c = c.view(c.size(0), c.size(1), 1, 1)
 
-        c1 = c.view(1, c.size(0), 1, 1)
-        c1 = c1.repeat(1, 1, down5.size(2), down5.size(3))
+        c1 = c.repeat(1, 1, down5.size(2), down5.size(3))
         down5 = torch.cat([down5, c1], dim = 1)
         up4 = self.upsample4(down5)
 
-        c2 = c.view(1, c.size(0), 1, 1)
-        c2 = c2.repeat(1, 1, up4.size(2), up4.size(3))
+        c2 = c.repeat(1, 1, up4.size(2), up4.size(3))
         up4 = torch.cat([up4, c2], dim = 1)
         up3 = self.upsample3(up4)
 
-        c3 = c.view(1, c.size(0), 1, 1)
-        c3 = c3.repeat(1, 1, up3.size(2), up3.size(3))
+        c3 = c.repeat(1, 1, up3.size(2), up3.size(3))
         up3 = torch.cat([up3, c3], dim = 1)
         up2 = self.upsample2(up3)
 
-        c4 = c.view(1, c.size(0), 1, 1)
-        c4 = c4.repeat(1, 1, up2.size(2), up2.size(3))
+        c4 = c.repeat(1, 1, up2.size(2), up2.size(3))
         up2 = torch.cat([up2, c4], dim=1)
         up1 = self.upsample1(up2)
 
+        c5 = c.repeat(1, 1, up1.size(2), up1.size(3))
+        up1 = torch.cat([up1, c5], dim=1)
         deconv = self.deconv(up1)
         return deconv

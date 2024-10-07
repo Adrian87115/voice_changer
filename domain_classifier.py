@@ -4,13 +4,11 @@ import torch.nn as nn
 class DomainClassifier(nn.Module):
     def __init__(self, num_target_speakers = 4, conv_dim = 8):
         super(DomainClassifier, self).__init__()
-        self.in_channels = 1
-        self.out_channels = 1
         self.num_target_speakers = num_target_speakers
-        self.downsample1 = self._block(self.in_channels, (4, 4), conv_dim, (2, 2))
-        self.downsample2 = self._block(conv_dim, (4, 4), conv_dim * 2, (2, 2))
-        self.downsample3 = self._block(conv_dim * 2, (4, 4), conv_dim * 4, (2, 2))
-        self.downsample4 = self._block(conv_dim * 4, (3, 4), conv_dim * 2, (1, 2))
+        self.downsample1 = self._block(1, (4, 4), conv_dim * 2, (2, 2))# add slice layer
+        self.downsample2 = self._block(conv_dim, (4, 4), conv_dim * 4, (2, 2))
+        self.downsample3 = self._block(conv_dim * 2, (4, 4), conv_dim * 8, (2, 2))
+        self.downsample4 = self._block(conv_dim * 4, (3, 4), conv_dim * 4, (1, 2))
         self.conv = nn.Conv2d(in_channels = conv_dim * 2,
                               out_channels = self.num_target_speakers,
                               kernel_size = (1, 4),
@@ -18,10 +16,8 @@ class DomainClassifier(nn.Module):
                               padding = 0)
         self.softmax = nn.Softmax(dim = 1)
 
-
     @staticmethod
     def _block(in_channels, kernel_size, out_channels, stride):
-        out_channels = out_channels * 2
         return nn.Sequential(
             nn.Conv2d(in_channels = in_channels,
                       out_channels = out_channels,
