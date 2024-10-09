@@ -1,5 +1,4 @@
 import os
-import scipy.io
 from torch.utils.data import Dataset
 import torch
 import matplotlib.pyplot as plt
@@ -58,6 +57,7 @@ class AudioDataset(Dataset):
         mcc_list = []
         source_parameter_list = []
         time_frames_list = []
+
         for file in self.file_list:
             data = np.load(file)
             norm_log_f0 = data['norm_log_f0']
@@ -75,12 +75,11 @@ class AudioDataset(Dataset):
         self.generateOneHotLabels()
 
     def generateOneHotLabels(self):
-        num_labels = self.num_speakers
+        num_labels = self.num_speakers# for all datasets different length of one hot?
         for idx, label in enumerate(self.unique_labels):
             one_hot = torch.zeros(num_labels, device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'))
-            one_hot[idx] = 1.0  # Set the one-hot position for the current label
+            one_hot[idx] = 1.0
             self.one_hot_labels[label] = one_hot
-
 
     def __getitem__(self, idx):
         mcc = torch.tensor(self.mcc[idx], dtype=torch.float32)
@@ -104,3 +103,6 @@ def getSpeakerOneHotFromLabel(label):
     label_index = all_labels.index(label)
     one_hot[label_index] = 1.0
     return one_hot
+
+def getId(label):
+    return all_labels.index(label)

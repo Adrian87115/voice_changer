@@ -72,17 +72,9 @@ class Model():
         eval_mcc = torch.stack([torch.tensor(x, dtype=torch.float32) for x in self.eval_dataset.mcc])
         ref_mcc = torch.stack([torch.tensor(x, dtype=torch.float32) for x in self.ref_dataset.mcc])
 
-        def labelsToTensor(labels):
-            if isinstance(labels[0], str):
-                label_set = sorted(set(labels))
-                label_to_index = {label: idx for idx, label in enumerate(label_set)}
-                return torch.tensor([label_to_index[label] for label in labels], dtype=torch.long)
-            else:
-                return torch.tensor(labels, dtype=torch.long)
-        train_labels = labelsToTensor(self.train_dataset.labels)
-        eval_labels = labelsToTensor(self.eval_dataset.labels)
-        ref_labels = labelsToTensor(self.ref_dataset.labels)
-
+        train_labels = torch.tensor([ad.getId(label) for label in self.train_dataset.labels], dtype=torch.long)
+        eval_labels = torch.tensor([ad.getId(label) for label in self.eval_dataset.labels], dtype=torch.long)
+        ref_labels = torch.tensor([ad.getId(label) for label in self.ref_dataset.labels], dtype=torch.long)
         eval_dataset = TensorDataset(eval_mcc, eval_labels)
         ref_dataset = TensorDataset(ref_mcc, ref_labels)
 
@@ -99,7 +91,7 @@ class Model():
         self.eval_loader = DataLoader(eval_dataset, batch_size=16, shuffle=False)
         self.ref_loader = DataLoader(ref_dataset, batch_size=16, shuffle=False)
 
-    def train(self, load_state=False, num_epochs=7):
+    def train(self, load_state = False, num_epochs = 1):
         if load_state:
             self.loadModel()
         print("Training model...")
@@ -114,8 +106,12 @@ class Model():
                     target_sample = next(target_iter)
                 source_mcc_batch, source_speaker_id_batch = source_sample
                 target_mcc_batch, target_speaker_id_batch = target_sample
+                source_mcc_batch = source_mcc_batch.transpose(-1, -2)
+                target_mcc_batch = target_mcc_batch.transpose(-1, -2)
+
                 batch_size = source_mcc_batch.size(0)
                 target_batch_size = target_mcc_batch.size(0)
+
                 if target_batch_size < batch_size:
                     repeat_factor = (batch_size + target_batch_size - 1) // target_batch_size
                     target_mcc_batch = target_mcc_batch.repeat(repeat_factor, 1, 1)[:batch_size]
@@ -123,17 +119,21 @@ class Model():
                 elif target_batch_size > batch_size:
                     target_mcc_batch = target_mcc_batch[:batch_size]
                     target_speaker_id_batch = target_speaker_id_batch[:batch_size]
+
                 source_mcc_batch = source_mcc_batch.to(self.device)
                 source_speaker_id_batch = source_speaker_id_batch.to(self.device)
                 target_mcc_batch = target_mcc_batch.to(self.device)
                 target_speaker_id_batch = target_speaker_id_batch.to(self.device)
-                source_speaker_labels = [self.train_dataset.labels[id.item()] for id in source_speaker_id_batch]
+
+                source_speaker_labels = [ad.all_labels[id.item()] for id in source_speaker_id_batch]
                 source_emb_batch = torch.stack([self.train_dataset.one_hot_labels[label] for label in source_speaker_labels])
-                target_speaker_id_to_convert_batch = target_speaker_id_batch - 8
-                target_speaker_labels_to_convert = [ad.target_labels[id.item()] for id in target_speaker_id_to_convert_batch]
-                target_emb_to_convert_batch = torch.stack([self.train_dataset.one_hot_labels[label] for label in target_speaker_labels_to_convert])
-                # 1. Source MCC + target label to generator (batch)
-                fake_mcc_batch = self.generator(source_mcc_batch, target_emb_to_convert_batch)
+
+                target_speaker_id_batch = target_speaker_id_batch - 8
+                target_speaker_labels = [ad.target_labels[id.item()] for id in target_speaker_id_batch]
+                target_emb_batch = torch.stack([self.train_dataset.one_hot_labels[label] for label in target_speaker_labels])
+
+                # 1. Source MCC + target label to generator
+                fake_mcc_batch = self.generator(source_mcc_batch, target_emb_batch)
                 # for idx, fake_mcc in enumerate(fake_mcc_batch):
                 #     fake_mcc = fake_mcc.detach().squeeze(0).cpu().numpy()
                 #     plt.figure(figsize=(10, 4))
@@ -143,32 +143,38 @@ class Model():
                 #     plt.xlabel('Time Frames')
                 #     plt.ylabel('MCC Coefficients')
                 #     plt.show()
-                #     plt.show()
                 #     break
 
-                # 2. Fake MCC + source label to generator (batch) (Cycle consistency loss)
+                # 2. Fake MCC + source label to generator (Cycle consistency loss)
                 rec_mcc_batch = self.generator(fake_mcc_batch, source_emb_batch)
+
+                # plt.imshow(rec_mcc_batch[0].detach().squeeze(0).cpu().numpy(), aspect='auto', origin='lower',
+                #            cmap='viridis', interpolation='none')
+                # plt.colorbar()
+                # plt.xlabel('Time Frames')
+                # plt.ylabel('MCC Coefficients')
+                # plt.show()
+                # plt.imshow(fake_mcc_batch[0].detach().squeeze(0).cpu().numpy(), aspect='auto', origin='lower', cmap='viridis', interpolation='none')
+                # plt.colorbar()
+                # plt.xlabel('Time Frames')
+                # plt.ylabel('MCC Coefficients')
+                # plt.show()
                 cycle_loss = self.criterion_cycle(rec_mcc_batch, source_mcc_batch)
 
-                # 3. Fake MCC to domain classifier (batch)
+                # 3. Fake MCC to domain classifier
                 fake_class_pred_batch = self.domain_classifier(fake_mcc_batch)
-                dc_loss_fake = self.criterion_cls(fake_class_pred_batch, target_speaker_id_to_convert_batch)
+                dc_loss_fake = self.criterion_cls(fake_class_pred_batch, target_speaker_id_batch)
 
-                # 4. Real target MCC to domain classifier (batch)
-                target_real_speaker_labels = [ad.all_labels[id.item()] for id in target_speaker_id_batch]
-                target_real_emb_batch = torch.stack(
-                    [ad.getSpeakerOneHotFromLabel(label) for label in target_real_speaker_labels])
-                target_real_speaker_id_batch = target_speaker_id_batch - 8
-
+                # 4. Real target MCC to domain classifier
                 target_class_pred_batch = self.domain_classifier(target_mcc_batch)
-                dc_loss_real = self.criterion_cls(target_class_pred_batch, target_real_speaker_id_batch)
+                dc_loss_real = self.criterion_cls(target_class_pred_batch, target_speaker_id_batch)
 
-                # 5. Fake MCC + chosen target label to discriminator (batch)
-                validity_fake_batch = self.discriminator(fake_mcc_batch, target_emb_to_convert_batch[:, 8:])
+                # 5. Fake MCC + chosen target label to discriminator
+                validity_fake_batch = self.discriminator(fake_mcc_batch, target_emb_batch[:, 8:])
                 d_loss_fake = self.criterion_adv(validity_fake_batch, torch.zeros_like(validity_fake_batch))
 
-                # 6. Real target MCC + real target label to discriminator (batch)
-                validity_real_batch = self.discriminator(target_mcc_batch, target_real_emb_batch[:, 8:])
+                # 6. Real target MCC + real target label to discriminator
+                validity_real_batch = self.discriminator(target_mcc_batch, target_emb_batch[:, 8:])
                 d_loss_real = self.criterion_adv(validity_real_batch, torch.ones_like(validity_real_batch))
 
                 self.g_optimizer.zero_grad()
@@ -176,8 +182,8 @@ class Model():
                 self.c_optimizer.zero_grad()
 
                 g_loss = self.criterion_adv(validity_fake_batch, torch.ones_like(validity_fake_batch)) + cycle_loss
-                d_loss = (d_loss_real + d_loss_fake) / 2
-                dc_loss = (dc_loss_fake + dc_loss_real) / 2
+                d_loss = d_loss_fake + 2 * d_loss_real
+                dc_loss = dc_loss_fake + 2 * dc_loss_real
                 total_loss = g_loss + d_loss + dc_loss
                 total_loss.backward()
 
@@ -204,6 +210,7 @@ class Model():
     def evaluate(self):
         self.loadModel()
         self.generator.eval()
+        self.discriminator.eval()
         self.domain_classifier.eval()
 
         eval_loss = 0.0
@@ -213,6 +220,7 @@ class Model():
         with torch.no_grad():
             for eval_sample in self.eval_loader:
                 eval_mcc_batch, eval_speaker_id_batch = eval_sample
+                eval_mcc_batch = eval_mcc_batch.transpose(-1, -2)
                 batch_size = eval_mcc_batch.size(0)
                 n_batches += 1
                 eval_mcc_batch = eval_mcc_batch.to(self.device)
@@ -234,61 +242,39 @@ class Model():
         return avg_eval_loss, accuracy
 
     def voiceToTarget(self, target_label, path_to_source_data):
-        # Load the pre-trained models
         self.loadModel()
         self.generator.eval()
         self.domain_classifier.eval()
         self.discriminator.eval()
 
-        # Load and process source audio data
         data = np.load(path_to_source_data)
         norm_log_f0 = data['norm_log_f0']
         mean_log_f0 = data['mean_log_f0']
         std_log_f0 = data['std_log_f0']
-        mcc = data['mcc']
+        mcc = data['mcc'].T
         ap = data['source_parameter']
         tf = data['time_frames']
-
-        # Adjust f0 (pitch) to match time frames
         norm_log_f0_zoom_factor = (tf / norm_log_f0.size,)
         norm_log_f0 = zoom(norm_log_f0, norm_log_f0_zoom_factor, order=1)
         log_f0 = mean_log_f0 + std_log_f0 * norm_log_f0
-        f0_target = np.exp(log_f0) - 1e-5  # Convert log f0 back to normal scale
-
-        # Convert target speaker label to embedding
+        f0_target = np.exp(log_f0) - 1e-5
         target_emb = ad.getSpeakerOneHotFromLabel(target_label)
         target_emb = torch.tensor(target_emb, dtype=torch.float32).unsqueeze(0).to(self.device)
-
-        # Prepare MCC tensor
         mcc_tensor = torch.tensor(mcc, dtype=torch.float32).unsqueeze(0).to(self.device)
-
-        # Run through generator to synthesize fake MCC
         with torch.no_grad():
-            fake_mcc = self.generator(mcc_tensor, target_emb)  # Generate fake MCC
-            predicted_speaker_logits = self.domain_classifier(fake_mcc)  # Classify the generated MCC
-            predicted_speaker_id = torch.argmax(predicted_speaker_logits, dim=1).item()  # Predicted speaker
+            fake_mcc = self.generator(mcc_tensor, target_emb)
+            predicted_speaker_logits = self.domain_classifier(fake_mcc)
+            predicted_speaker_id = torch.argmax(predicted_speaker_logits, dim=1).item()
             predicted_speaker_label = ad.target_labels[predicted_speaker_id]
-
             print(f"Synthesized audio is predicted to correspond to speaker: {predicted_speaker_label}")
-
-            # Discriminator check to see if the generated MCC is realistic
             is_real = self.discriminator(fake_mcc, target_emb[:, 8:])
             print(f"Probability synthesized audio is real: {is_real[0].item():.4f}")
-
-        # Convert fake MCC back to numpy array for audio synthesis
-        fake_mcc = fake_mcc.squeeze(0).squeeze(0).cpu().numpy()
-
-        # Match the length of fake MCC to the number of time frames
+        fake_mcc = fake_mcc.squeeze(0).squeeze(0).cpu().numpy().T
         mcc_zoom_factor = (tf / fake_mcc.shape[0], 1)
         fake_mcc = zoom(fake_mcc, mcc_zoom_factor, order=1).astype(np.float64)
-
-        # Synthesize the audio using the target pitch (f0), MCC, and aperiodicity (ap)
         synthesized_wav = u.reassembleWav(f0_target, fake_mcc, ap, 22050, 5)
-
-        # Save the synthesized audio
         u.saveWav(synthesized_wav, "out_synthesized.wav", 22050)
 
-        # Plot pitch contour (f0) over time
         plt.plot(f0_target)
         plt.title('Pitch Contour (f0)')
         plt.xlabel('Time Frames')
@@ -296,15 +282,13 @@ class Model():
         plt.grid(True)
         plt.show()
 
-        # Plot fake MCC spectrogram
-        plt.imshow(fake_mcc, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
+        plt.imshow(fake_mcc.T, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
         plt.colorbar()
         plt.title('Fake Spectrogram')
         plt.xlabel('Time Frames')
         plt.ylabel('MCC Coefficients')
         plt.show()
 
-        # Plot original MCC spectrogram
         plt.imshow(mcc, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
         plt.colorbar()
         plt.title('Original Spectrogram')
@@ -312,7 +296,6 @@ class Model():
         plt.ylabel('MCC Coefficients')
         plt.show()
 
-        # Plot aperiodicity (ap)
         plt.imshow(ap, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
         plt.colorbar()
         plt.title('Aperiodicity')

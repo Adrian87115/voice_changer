@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as f
 
 class Discriminator(nn.Module):
     def __init__(self, conv_dim = 32, num_speakers = 4):

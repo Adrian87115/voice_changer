@@ -97,13 +97,13 @@ def resizeBatchAudio(input_dir):
             norm_log_f0 = zoom(norm_log_f0, (512 / norm_log_f0.size,), order = 1)
             np.savez(output_filename, norm_log_f0 = norm_log_f0, mean_log_f0 = mean_log_f0, std_log_f0 = std_log_f0, mcc = mcc, source_parameter = source_parameter, time_frames = tf)
 
-# process_wav("C:/Users/adria/Desktop/test/audio/VCC2SF1/10001.wav", "C:/Users/adria/Desktop/test/audio/VCC2SF1/output.wav", fs = 22050, frame_period = 5.0, mcc_dim = 36)
+# processWav("C:/Users/adria/Desktop/test/audio/VCC2SF1/10001.wav", "C:/Users/adria/Desktop/test/audio/VCC2SF1/output.wav", fs = 22050, frame_period = 5.0, mcc_dim = 36)
 
-# batch_process_audio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/training_data/audio")
-# batch_process_audio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/reference_data/audio")
-# batch_process_audio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/evaluation_data/audio")
+# batchProcessAudio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/training_data/audio")
+# batchProcessAudio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/reference_data/audio")
+# batchProcessAudio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/evaluation_data/audio")
 
-# resize_batch_audio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/training_data/transformed_audio")
-# resize_batch_audio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/reference_data/transformed_audio")
-# resize_batch_audio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/evaluation_data/transformed_audio")
+# resizeBatchAudio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/training_data/transformed_audio")
+# resizeBatchAudio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/reference_data/transformed_audio")
+# resizeBatchAudio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/evaluation_data/transformed_audio")
 
