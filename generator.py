@@ -1,19 +1,19 @@
 import torch
 import torch.nn as nn
-import matplotlib.pyplot as plt
+
 class Generator(nn.Module):
     def __init__(self, conv_dim = 32, num_speakers = 12):
         super(Generator, self).__init__()
         self.num_speakers = num_speakers
-        self.downsample1 = self._down_block(1, (3, 9), conv_dim * 2, (1, 1), (1,4))
-        self.downsample2 = self._down_block(conv_dim, (4, 8), conv_dim * 4, (2, 2), (1,3))
-        self.downsample3 = self._down_block(conv_dim * 2, (4, 8), conv_dim * 8, (2, 2), (1,3))
-        self.downsample4 = self._down_block(conv_dim * 4, (3, 5), conv_dim * 4, (1, 1), (1,2))
-        self.downsample5 = self._down_block(conv_dim * 2, (9, 5), 10, (9, 1), (1,2))
-        self.upsample4 = self._up_block(5 + self.num_speakers, (9, 5), conv_dim * 4, (9, 1), (0,2))
-        self.upsample3 = self._up_block(conv_dim * 2 + self.num_speakers, (3, 5), conv_dim * 8, (1, 1), (1,2))
-        self.upsample2 = self._up_block(conv_dim * 4 + self.num_speakers, (4, 8), conv_dim * 4, (2, 2), (1,3))
-        self.upsample1 = self._up_block(conv_dim * 2 + self.num_speakers, (4, 8), conv_dim * 2, (2, 2), (1,3))
+        self.downsample1 = self._down_block(1, (3, 9), conv_dim * 2, (1, 1), (1, 4))
+        self.downsample2 = self._down_block(conv_dim, (4, 8), conv_dim * 4, (2, 2), (1, 3))
+        self.downsample3 = self._down_block(conv_dim * 2, (4, 8), conv_dim * 8, (2, 2), (1, 3))
+        self.downsample4 = self._down_block(conv_dim * 4, (3, 5), conv_dim * 4, (1, 1), (1, 2))
+        self.downsample5 = self._down_block(conv_dim * 2, (9, 5), 10, (9, 1), (1, 2))
+        self.upsample4 = self._up_block(5 + self.num_speakers, (9, 5), conv_dim * 4, (9, 1), (0, 2))
+        self.upsample3 = self._up_block(conv_dim * 2 + self.num_speakers, (3, 5), conv_dim * 8, (1, 1), (1, 2))
+        self.upsample2 = self._up_block(conv_dim * 4 + self.num_speakers, (4, 8), conv_dim * 4, (2, 2), (1, 3))
+        self.upsample1 = self._up_block(conv_dim * 2 + self.num_speakers, (4, 8), conv_dim * 2, (2, 2), (1, 3))
         self.deconv = nn.ConvTranspose2d(in_channels = conv_dim + self.num_speakers,
                                          out_channels = 1,
                                          kernel_size = (3, 9),

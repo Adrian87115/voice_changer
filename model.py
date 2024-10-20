@@ -37,6 +37,7 @@ class Model():
         self.d_scheduler = StepLR(self.d_optimizer, step_size=1, gamma=0.1)
         self.c_scheduler = StepLR(self.c_optimizer, step_size=1, gamma=0.1)
         self.top_score = float('inf')
+        self.n_critic = 3
 
     def saveModel(self):
         file_path = "saved_model.pth"
@@ -132,6 +133,8 @@ class Model():
                 target_speaker_labels = [ad.target_labels[id.item()] for id in target_speaker_id_batch]
                 target_emb_batch = torch.stack([self.train_dataset.one_hot_labels[label] for label in target_speaker_labels])
 
+                # use n_critic
+
                 # 1. Source MCC + target label to generator
                 fake_mcc_batch = self.generator(source_mcc_batch, target_emb_batch)
                 # for idx, fake_mcc in enumerate(fake_mcc_batch):
@@ -207,7 +210,7 @@ class Model():
             self.c_scheduler.step()
             print("Min total loss: ", self.top_score)
 
-    def evaluate(self):
+    def evaluate(self):#make better eval
         self.loadModel()
         self.generator.eval()
         self.discriminator.eval()
@@ -266,7 +269,9 @@ class Model():
             predicted_speaker_logits = self.domain_classifier(fake_mcc)
             predicted_speaker_id = torch.argmax(predicted_speaker_logits, dim=1).item()
             predicted_speaker_label = ad.target_labels[predicted_speaker_id]
-            print(f"Synthesized audio is predicted to correspond to speaker: {predicted_speaker_label}")
+            predicted_speaker_prob = torch.softmax(predicted_speaker_logits, dim=1)
+            predicted_speaker_prob = predicted_speaker_prob[0, predicted_speaker_id].item()
+            print(f"Synthesized audio is predicted to correspond to speaker: {predicted_speaker_label}, with probability: {predicted_speaker_prob:.4f}")
             is_real = self.discriminator(fake_mcc, target_emb[:, 8:])
             print(f"Probability synthesized audio is real: {is_real[0].item():.4f}")
         fake_mcc = fake_mcc.squeeze(0).squeeze(0).cpu().numpy().T
@@ -302,3 +307,5 @@ class Model():
         plt.xlabel('Time Frames')
         plt.ylabel('Value')
         plt.show()
+
+# try approach with residual blocks from stargan vc2
