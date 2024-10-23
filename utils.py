@@ -2,7 +2,6 @@ import librosa
 import pyworld
 import numpy as np
 import soundfile as sf
-import matplotlib.pyplot as plt
 import os
 from scipy.ndimage import zoom
 
@@ -10,7 +9,7 @@ def loadWav(wav_file, sr):
     wav, _ = librosa.load(wav_file, sr = sr, mono = True)
     return wav
 
-def decomposeWav(wav_file, fs = 22050, frame_period = 5.0, mcc_dim = 36):
+def decomposeWav(wav_file, fs = 22050, frame_period = 5.0, mcc_dim = 35):
     wav = loadWav(wav_file, sr = fs)
     wav = wav.astype(np.float64)
     f0, timeaxis = pyworld.harvest(wav, fs, frame_period = frame_period)
@@ -32,7 +31,7 @@ def reassembleWav(f0, mcc, ap, fs, frame_period):
 def saveWav(wav, output_file, fs):
     sf.write(output_file, wav, fs)
 
-def processWav(wav_file, output_file, fs, frame_period = 5.0, mcc_dim = 36):
+def processWav(wav_file, output_file, fs, frame_period = 5.0, mcc_dim = 35):
     f0, mcc, ap, fs, frame_period = decomposeWav(wav_file, fs, frame_period, mcc_dim)
     reassembled_wav = reassembleWav(f0, mcc, ap, fs, frame_period)
     saveWav(reassembled_wav, output_file, fs)
@@ -51,10 +50,9 @@ def batchProcessAudio(input_dir):
         if not os.path.exists(output_speaker_folder):
             os.makedirs(output_speaker_folder)
         audio_files = [f for f in os.listdir(input_speaker_folder) if f.endswith('.wav')]
-
         for audio_file in audio_files:
             input_filename = os.path.join(input_speaker_folder, audio_file)
-            output_filename = os.path.join(output_speaker_folder, audio_file[:-4] + ".npz")
+            output_filename = os.path.join(output_speaker_folder, audio_file[:-4] + '.npz')
             processAudio(input_filename, output_filename)
 
 def processAudio(input_filename, output_filename):
@@ -82,10 +80,9 @@ def resizeBatchAudio(input_dir):
         if not os.path.exists(output_speaker_folder):
             os.makedirs(output_speaker_folder)
         npz_files = [f for f in os.listdir(input_speaker_folder) if f.endswith('.npz')]
-
         for npz_file in npz_files:
             input_filename = os.path.join(input_speaker_folder, npz_file)
-            output_filename = os.path.join(output_speaker_folder, npz_file[:-4] + ".npz")
+            output_filename = os.path.join(output_speaker_folder, npz_file[:-4] + '.npz')
             data = np.load(input_filename)
             tf = data['time_frames']
             mcc = data['mcc']
@@ -97,12 +94,12 @@ def resizeBatchAudio(input_dir):
             norm_log_f0 = zoom(norm_log_f0, (512 / norm_log_f0.size,), order = 1)
             np.savez(output_filename, norm_log_f0 = norm_log_f0, mean_log_f0 = mean_log_f0, std_log_f0 = std_log_f0, mcc = mcc, source_parameter = source_parameter, time_frames = tf)
 
-# processWav("C:/Users/adria/Desktop/test/audio/VCC2SF1/10001.wav", "C:/Users/adria/Desktop/test/audio/VCC2SF1/output.wav", fs = 22050, frame_period = 5.0, mcc_dim = 36)
-
+# processWav("C:/Users/adria/Desktop/test/audio/VCC2SF1/10001.wav", "C:/Users/adria/Desktop/test/audio/VCC2SF1/output.wav", fs = 22050, frame_period = 5.0, mcc_dim = 35)
+#
 # batchProcessAudio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/training_data/audio")
 # batchProcessAudio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/reference_data/audio")
 # batchProcessAudio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/evaluation_data/audio")
-
+#
 # resizeBatchAudio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/training_data/transformed_audio")
 # resizeBatchAudio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/reference_data/transformed_audio")
 # resizeBatchAudio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/evaluation_data/transformed_audio")

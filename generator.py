@@ -1,75 +1,164 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as f
+
+class GLU(nn.Module):
+    def __init__(self):
+        super(GLU, self).__init__()
+
+    def forward(self, input):
+        return input * torch.sigmoid(input)
+
+class up2Dsample(nn.Module):
+    def __init__(self, upscale_factor = 2):
+        super(up2Dsample, self).__init__()
+        self.scale_factor = upscale_factor
+
+    def forward(self, input):
+        h = input.shape[2]
+        w = input.shape[3]
+        new_size = [h * self.scale_factor, w * self.scale_factor]
+        return f.interpolate(input, new_size)
+
+class ResidualLayer(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, stride, padding):
+        super(ResidualLayer, self).__init__()
+        self.residualLayer = nn.Sequential(nn.Conv1d(in_channels = in_channels,
+                                                     out_channels = out_channels,
+                                                     kernel_size = kernel_size,
+                                                     stride = stride,
+                                                     padding = padding),
+                                           nn.InstanceNorm1d(num_features = out_channels, affine = True),
+                                           GLU(),
+                                           nn.Conv1d(in_channels = out_channels,
+                                                     out_channels = in_channels,
+                                                     kernel_size = kernel_size,
+                                                     stride = stride,
+                                                     padding = padding),
+                                           nn.InstanceNorm1d(num_features = in_channels, affine = True))
+
+    def forward(self, input):
+        out = self.residualLayer(input)
+        return input + out
 
 class Generator(nn.Module):
-    def __init__(self, conv_dim = 32, num_speakers = 12):
+    def __init__(self):
         super(Generator, self).__init__()
-        self.num_speakers = num_speakers
-        self.downsample1 = self._down_block(1, (3, 9), conv_dim * 2, (1, 1), (1, 4))
-        self.downsample2 = self._down_block(conv_dim, (4, 8), conv_dim * 4, (2, 2), (1, 3))
-        self.downsample3 = self._down_block(conv_dim * 2, (4, 8), conv_dim * 8, (2, 2), (1, 3))
-        self.downsample4 = self._down_block(conv_dim * 4, (3, 5), conv_dim * 4, (1, 1), (1, 2))
-        self.downsample5 = self._down_block(conv_dim * 2, (9, 5), 10, (9, 1), (1, 2))
-        self.upsample4 = self._up_block(5 + self.num_speakers, (9, 5), conv_dim * 4, (9, 1), (0, 2))
-        self.upsample3 = self._up_block(conv_dim * 2 + self.num_speakers, (3, 5), conv_dim * 8, (1, 1), (1, 2))
-        self.upsample2 = self._up_block(conv_dim * 4 + self.num_speakers, (4, 8), conv_dim * 4, (2, 2), (1, 3))
-        self.upsample1 = self._up_block(conv_dim * 2 + self.num_speakers, (4, 8), conv_dim * 2, (2, 2), (1, 3))
-        self.deconv = nn.ConvTranspose2d(in_channels = conv_dim + self.num_speakers,
-                                         out_channels = 1,
-                                         kernel_size = (3, 9),
-                                         stride = (1, 1),
-                                         padding = (1,4))
+        self.conv1 = nn.Conv2d(in_channels = 1,
+                               out_channels = 128,
+                               kernel_size = (5, 15),
+                               stride = 1,
+                               padding = (2, 7))
+        self.glu = GLU()
+        self.down1 = self._down_block(in_channels = 128,
+                                      out_channels = 256,
+                                      kernel_size = 5,
+                                      stride = 2,
+                                      padding = 2)
+        self.down2 = self._down_block(in_channels = 256,
+                                      out_channels = 256,
+                                      kernel_size = 5,
+                                      stride = 2,
+                                      padding = 2)
+        self.conv2 = nn.Sequential(nn.Conv1d(in_channels = 2304,
+                                             out_channels = 256,
+                                             kernel_size = 1,
+                                             stride = 1,
+                                             padding = 0),
+                                   nn.InstanceNorm1d(num_features = 256, affine = True))
+        self.residual1 = ResidualLayer(in_channels = 256,
+                                       out_channels = 512,
+                                       kernel_size = 3,
+                                       stride = 1,
+                                       padding = 1)
+        self.residual2 = ResidualLayer(in_channels = 256,
+                                       out_channels = 512,
+                                       kernel_size = 3,
+                                       stride = 1,
+                                       padding = 1)
+        self.residual3 = ResidualLayer(in_channels = 256,
+                                       out_channels = 512,
+                                       kernel_size = 3,
+                                       stride = 1,
+                                       padding = 1)
+        self.residual4 = ResidualLayer(in_channels = 256,
+                                       out_channels = 512,
+                                       kernel_size = 3,
+                                       stride = 1,
+                                       padding = 1)
+        self.residual5 = ResidualLayer(in_channels = 256,
+                                       out_channels = 512,
+                                       kernel_size = 3,
+                                       stride = 1,
+                                       padding = 1)
+        self.residual6 = ResidualLayer(in_channels = 256,
+                                       out_channels = 512,
+                                       kernel_size = 3,
+                                       stride = 1,
+                                       padding = 1)
+        self.conv3 = nn.Sequential(nn.Conv1d(in_channels = 256,
+                                             out_channels = 2304,
+                                             kernel_size = 1,
+                                             stride = 1,
+                                             padding = 0),
+                                   nn.InstanceNorm1d(num_features = 2304, affine = True))
+        self.up1 = self._up_block(in_channels = 256,
+                                  out_channels = 1024,
+                                  kernel_size = 5,
+                                  stride = 1,
+                                  padding = 2)
+        self.up2 = self._up_block(in_channels = 1024,
+                                  out_channels = 512,
+                                  kernel_size = 5,
+                                  stride = 1,
+                                  padding = 2)
+        self.conv4 = nn.Conv2d(in_channels = 512,
+                               out_channels = 1,
+                               kernel_size = (5, 15),
+                               stride = 1,
+                               padding = (2, 7))
 
     @staticmethod
-    def _down_block(in_channels, kernel_size, out_channels, stride, padding):
-        return nn.Sequential(
-            nn.Conv2d(in_channels = in_channels,
-                      out_channels = out_channels,
-                      kernel_size = kernel_size,
-                      stride = stride,
-                      padding = padding),
-            nn.BatchNorm2d(out_channels, affine = False, track_running_stats = False),
-            nn.GLU(dim = 1))
+    def _down_block(in_channels, out_channels, kernel_size, stride, padding):
+        return nn.Sequential(nn.Conv2d(in_channels = in_channels,
+                                       out_channels = out_channels,
+                                       kernel_size = kernel_size,
+                                       stride = stride,
+                                       padding = padding),
+                             nn.InstanceNorm2d(num_features = out_channels, affine = True),
+                             GLU())
 
     @staticmethod
-    def _up_block(in_channels, kernel_size, out_channels, stride, padding):
-        return nn.Sequential(
-            nn.ConvTranspose2d(in_channels = in_channels,
-                      out_channels = out_channels,
-                      kernel_size = kernel_size,
-                      stride = stride,
-                      padding = padding),
-            nn.BatchNorm2d(out_channels, affine = False, track_running_stats = False),
-            nn.GLU(dim = 1))
-
-    def forward(self, x, c):
+    def _up_block(in_channels, out_channels, kernel_size, stride, padding):
+        return nn.Sequential(nn.Conv2d(in_channels = in_channels,
+                                       out_channels = out_channels,
+                                       kernel_size = kernel_size,
+                                       stride = stride,
+                                       padding = padding),
+                             # nn.PixelShuffle(upscale_factor = 2), # very time and resources costly, without rewarding results
+                             up2Dsample(upscale_factor = 2),
+                             nn.InstanceNorm2d(num_features = out_channels, affine = True),
+                             GLU())
+    def forward(self, x):
         if len(x.shape) == 3:
             x = x.unsqueeze(1)
-
-        down1 = self.downsample1(x)
-        down2 = self.downsample2(down1)
-        down3 = self.downsample3(down2)
-        down4 = self.downsample4(down3)
-        down5 = self.downsample5(down4)
-        c = c.view(c.size(0), c.size(1), 1, 1)
-
-        c1 = c.repeat(1, 1, down5.size(2), down5.size(3))
-        down5 = torch.cat([down5, c1], dim = 1)
-        up4 = self.upsample4(down5)
-
-        c2 = c.repeat(1, 1, up4.size(2), up4.size(3))
-        up4 = torch.cat([up4, c2], dim = 1)
-        up3 = self.upsample3(up4)
-
-        c3 = c.repeat(1, 1, up3.size(2), up3.size(3))
-        up3 = torch.cat([up3, c3], dim = 1)
-        up2 = self.upsample2(up3)
-
-        c4 = c.repeat(1, 1, up2.size(2), up2.size(3))
-        up2 = torch.cat([up2, c4], dim=1)
-        up1 = self.upsample1(up2)
-
-        c5 = c.repeat(1, 1, up1.size(2), up1.size(3))
-        up1 = torch.cat([up1, c5], dim=1)
-        deconv = self.deconv(up1)
-        return deconv
+        conv1 = self.conv1(x)
+        glu = self.glu(conv1)
+        down1 = self.down1(glu)
+        down2 = self.down2(down1)
+        down3 = down2.view([down2.shape[0], -1, down2.shape[3]])
+        down3 = self.conv2(down3)
+        residual1 = self.residual1(down3)
+        residual2 = self.residual2(residual1)
+        residual3 = self.residual3(residual2)
+        residual4 = self.residual4(residual3)
+        residual5 = self.residual5(residual4)
+        residual6 = self.residual6(residual5)
+        residual6 = self.conv3(residual6)
+        residual6 = residual6.view([down2.shape[0], down2.shape[1], down2.shape[2], down2.shape[3]])
+        up1 = self.up1(residual6)
+        up2 = self.up2(up1)
+        output = self.conv4(up2)
+        output = output.view([output.shape[0], -1, output.shape[3]])
+        output = output[:, 1:, :]
+        return output

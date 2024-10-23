@@ -1,57 +1,72 @@
 import torch
 import torch.nn as nn
 
+class GLU(nn.Module):
+    def __init__(self):
+        super(GLU, self).__init__()
+
+    def forward(self, input):
+        return input * torch.sigmoid(input)
+
 class Discriminator(nn.Module):
-    def __init__(self, conv_dim = 32, num_speakers = 4):
+    def __init__(self):
         super(Discriminator, self).__init__()
-        self.num_speakers = num_speakers
-        self.downsample1 = self._block(1 + self.num_speakers, (3, 9), conv_dim * 2, (1, 1))
-        self.downsample2 = self._block(conv_dim + self.num_speakers, (3, 8), conv_dim * 2, (1, 2))
-        self.downsample3 = self._block(conv_dim + self.num_speakers, (3, 8), conv_dim * 2, (1, 2))
-        self.downsample4 = self._block(conv_dim + self.num_speakers, (3, 6), 2, (1, 2))
-        self.conv = nn.Conv2d(in_channels = 1 + self.num_speakers,
-                              out_channels = 1,
-                              kernel_size = (36, 5),
-                              stride = (36, 1),
-                              padding = 1)
+        self.conv1 = nn.Conv2d(in_channels = 1,
+                               out_channels = 128,
+                               kernel_size = (3, 3),
+                               stride = (1, 1),
+                               padding = (1, 1))
+        self.glu = GLU()
+        self.down1 = self._block(in_channels = 128,
+                                 out_channels = 256,
+                                 kernel_size = (3, 3),
+                                 stride = (2, 2),
+                                 padding = 1)
+        self.down2 = self._block(in_channels = 256,
+                                 out_channels = 512,
+                                 kernel_size = (3, 3),
+                                 stride = (2, 2),
+                                 padding = 1)
+        self.down3 = self._block(in_channels = 512,
+                                 out_channels = 1024,
+                                 kernel_size = (3, 3),
+                                 stride = (2, 2),
+                                 padding = 1)
+        self.down4 = self._block(in_channels = 512,
+                                 out_channels = 1024,
+                                 kernel_size = (1, 5),
+                                 stride = (1, 1),
+                                 padding = (0, 2))
+        self.conv2 = nn.Conv2d(in_channels = 1024,
+                               out_channels = 1,
+                               kernel_size = (1, 3),
+                               stride = (1, 1),
+                               padding = (0, 1))
         self.sigmoid = nn.Sigmoid()
+        self.fc = nn.Linear(in_features = 320, out_features = 1)
 
     @staticmethod
-    def _block(in_channels, kernel_size, out_channels, stride):
+    def _block(in_channels, out_channels, kernel_size, stride, padding):
         return nn.Sequential(
             nn.Conv2d(in_channels = in_channels,
                       out_channels = out_channels,
                       kernel_size = kernel_size,
                       stride = stride,
-                      padding = 2),
-            nn.BatchNorm2d(out_channels),
-            nn.GLU(dim = 1))
+                      padding = padding),
+            nn.InstanceNorm2d(num_features = out_channels, affine = True),
+            GLU())
 
-    def forward(self, x, c):
+    def forward(self, x):
         if len(x.shape) == 3:
             x = x.unsqueeze(1)
-        c = c.view(c.size(0), c.size(1), 1, 1)
-
-        c1 = c.repeat(1, 1, x.size(2), x.size(3))
-        x = torch.cat([x, c1], dim=1)
-        down1 = self.downsample1(x)
-
-        c2 = c.repeat(1, 1, down1.size(2), down1.size(3))
-        down1 = torch.cat([down1, c2], dim=1)
-        down2 = self.downsample2(down1)
-
-        c3 = c.repeat(1, 1, down2.size(2), down2.size(3))
-        down2 = torch.cat([down2, c3], dim=1)
-        down3 = self.downsample3(down2)
-
-        c4 = c.repeat(1, 1, down3.size(2), down3.size(3))
-        down3 = torch.cat([down3, c4], dim=1)
-        down4 = self.downsample4(down3)
-
-        c5 = c.repeat(1, 1, down4.size(2), down4.size(3))
-        down4 = torch.cat([down4, c5], dim=1)
-        conv = self.conv(down4)
-
-        sig = self.sigmoid(conv)
-        product = torch.mean(sig, dim = [1, 2, 3], keepdim = False)
-        return product
+        conv1 = self.conv1(x)
+        glu = self.glu(conv1)
+        down1 = self.down1(glu)
+        down2 = self.down2(down1)
+        down3 = self.down3(down2)
+        conv2 = self.conv2(down3)
+        sigmoid = self.sigmoid(conv2)
+        flattened = sigmoid.view(sigmoid.size(0), -1)
+        fc_output = self.fc(flattened)
+        output = self.sigmoid(fc_output)
+        return output
