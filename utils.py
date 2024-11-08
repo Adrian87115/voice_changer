@@ -5,6 +5,19 @@ import soundfile as sf
 import os
 from scipy.ndimage import zoom
 
+def scaleDown(mcc, target_size = 128):
+    original_size = mcc.shape[1]
+    scale_factor = target_size / original_size
+    mcc_scaled_down = zoom(mcc, (1, scale_factor), order=1)
+    return mcc_scaled_down
+
+def scaleUp(mcc, original_size = 512):
+    target_size = original_size
+    current_size = mcc.shape[1]
+    scale_factor = target_size / current_size
+    mcc_scaled_up = zoom(mcc, (1, scale_factor), order=1)
+    return mcc_scaled_up
+
 def loadWav(wav_file, sr):
     wav, _ = librosa.load(wav_file, sr = sr, mono = True)
     return wav

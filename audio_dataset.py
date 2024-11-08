@@ -1,6 +1,7 @@
 import os
 from torch.utils.data import Dataset
 import numpy as np
+import random
 
 all_labels = ["VCC2SF1",
               "VCC2SF2",
@@ -56,6 +57,9 @@ class AudioDataset(Dataset):
             data = np.load(file)
             norm_log_f0 = data['norm_log_f0']
             mcc = data['mcc']
+            start = random.randint(0, 384)
+            end = start + 128
+            mcc = mcc[start:end, :]
             source_parameter = data['source_parameter']
             time_frames = data['time_frames']
             if speaker_id == source:

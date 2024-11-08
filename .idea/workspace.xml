@@ -4,11 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d61baad7-532c-4034-bbcf-9d66fb232ffc" name="Changes" comment="some improvements, still no signifficant results, before trying to reproduce from simpler previous model training version">
+    <list default="true" id="d61baad7-532c-4034-bbcf-9d66fb232ffc" name="Changes" comment="before cutting random 128">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/audio_dataset.py" beforeDir="false" afterPath="$PROJECT_DIR$/audio_dataset.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/discriminator.py" beforeDir="false" afterPath="$PROJECT_DIR$/discriminator.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/generator.py" beforeDir="false" afterPath="$PROJECT_DIR$/generator.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/model.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils.py" afterDir="false" />
@@ -38,7 +37,7 @@
     &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/adria/Desktop/Adrian/projects/PyCharm/optimization_algorithms&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -108,7 +107,41 @@
       <workItem from="1728320709623" duration="3953000" />
       <workItem from="1728391787729" duration="4863000" />
       <workItem from="1728399913645" duration="10324000" />
-      <workItem from="1728454579490" duration="1725000" />
+      <workItem from="1728454579490" duration="4140000" />
+      <workItem from="1728458776786" duration="66000" />
+      <workItem from="1728460376550" duration="1307000" />
+      <workItem from="1728464556902" duration="943000" />
+      <workItem from="1728551865403" duration="36000" />
+      <workItem from="1728557345188" duration="2066000" />
+      <workItem from="1728585035686" duration="13000" />
+      <workItem from="1728662519035" duration="676000" />
+      <workItem from="1728740107647" duration="37000" />
+      <workItem from="1728975546119" duration="963000" />
+      <workItem from="1728978960173" duration="35000" />
+      <workItem from="1729198800658" duration="135000" />
+      <workItem from="1729449587104" duration="3949000" />
+      <workItem from="1729456731216" duration="3256000" />
+      <workItem from="1729494277692" duration="11920000" />
+      <workItem from="1729526387344" duration="5852000" />
+      <workItem from="1729535780281" duration="193000" />
+      <workItem from="1729576083920" duration="3566000" />
+      <workItem from="1729581044331" duration="7000" />
+      <workItem from="1729583378683" duration="1244000" />
+      <workItem from="1729601424278" duration="3711000" />
+      <workItem from="1729612609323" duration="1116000" />
+      <workItem from="1729624342438" duration="13000" />
+      <workItem from="1729664230208" duration="673000" />
+      <workItem from="1729664938178" duration="11036000" />
+      <workItem from="1729686844556" duration="1176000" />
+      <workItem from="1729693141919" duration="13894000" />
+      <workItem from="1729752521577" duration="15000" />
+      <workItem from="1729797911730" duration="4762000" />
+      <workItem from="1729804666931" duration="12000" />
+      <workItem from="1730191347490" duration="2000" />
+      <workItem from="1730739503701" duration="17000" />
+      <workItem from="1730794228309" duration="1465000" />
+      <workItem from="1730818110129" duration="1488000" />
+      <workItem from="1730838065977" duration="20000" />
     </task>
     <task id="LOCAL-00001" summary="some improvements, still no signifficant results, before trying to reproduce from simpler previous model training version">
       <option name="closed" value="true" />
@@ -118,7 +151,39 @@
       <option name="project" value="LOCAL" />
       <updated>1728297404059</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="some fixes and optimisation">
+      <option name="closed" value="true" />
+      <created>1728456493100</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1728456493100</updated>
+    </task>
+    <task id="LOCAL-00003" summary="before major changes">
+      <option name="closed" value="true" />
+      <created>1729456744019</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1729456744019</updated>
+    </task>
+    <task id="LOCAL-00004" summary="cyclegan vc2 based approach">
+      <option name="closed" value="true" />
+      <created>1729707118495</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1729707118495</updated>
+    </task>
+    <task id="LOCAL-00005" summary="before cutting random 128">
+      <option name="closed" value="true" />
+      <created>1729798532674</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1729798532674</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -126,11 +191,15 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="some improvements, still no signifficant results, before trying to reproduce from simpler previous model training version" />
-    <option name="LAST_COMMIT_MESSAGE" value="some improvements, still no signifficant results, before trying to reproduce from simpler previous model training version" />
+    <MESSAGE value="some fixes and optimisation" />
+    <MESSAGE value="before major changes" />
+    <MESSAGE value="cyclegan vc2 based approach" />
+    <MESSAGE value="before cutting random 128" />
+    <option name="LAST_COMMIT_MESSAGE" value="before cutting random 128" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/voice_changer$utils.coverage" NAME="utils Coverage Results" MODIFIED="1728394377500" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/voice_changer$model.coverage" NAME="model Coverage Results" MODIFIED="1728394576526" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/voice_changer$main.coverage" NAME="main Coverage Results" MODIFIED="1728455880989" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+    <SUITE FILE_PATH="coverage/voice_changer$model.coverage" NAME="model Coverage Results" MODIFIED="1729669549205" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/voice_changer$utils.coverage" NAME="utils Coverage Results" MODIFIED="1729696066659" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/voice_changer$main.coverage" NAME="main Coverage Results" MODIFIED="1730825868425" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
   </component>
 </project>

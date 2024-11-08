@@ -43,7 +43,7 @@ class Discriminator(nn.Module):
                                stride = (1, 1),
                                padding = (0, 1))
         self.sigmoid = nn.Sigmoid()
-        self.fc = nn.Linear(in_features = 320, out_features = 1)
+        self.fc = nn.Linear(in_features = 80, out_features = 1)
 
     @staticmethod
     def _block(in_channels, out_channels, kernel_size, stride, padding):

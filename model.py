@@ -30,10 +30,10 @@ class Model():
         self.criterion_adv = nn.MSELoss()
         self.criterion_cycle = nn.L1Loss()
         self.criterion_identity = nn.L1Loss()
-        self.g_scheduler_xy = StepLR(self.g_optimizer_xy, step_size = 810, gamma = 0.1)
-        self.g_scheduler_yx = StepLR(self.g_optimizer_yx, step_size = 810, gamma = 0.1)
-        self.d_scheduler_x = StepLR(self.d_optimizer_x, step_size = 810, gamma = 0.1)
-        self.d_scheduler_y = StepLR(self.d_optimizer_y, step_size = 810, gamma = 0.1)
+        self.g_scheduler_xy = StepLR(self.g_optimizer_xy, step_size = 100000, gamma = 0.1)
+        self.g_scheduler_yx = StepLR(self.g_optimizer_yx, step_size = 100000, gamma = 0.1)
+        self.d_scheduler_x = StepLR(self.d_optimizer_x, step_size = 100000, gamma = 0.1)
+        self.d_scheduler_y = StepLR(self.d_optimizer_y, step_size = 100000, gamma = 0.1)
         self.top_score = float('inf')
         self.source = source
         self.target = target
@@ -93,7 +93,7 @@ class Model():
         self.eval_source_loader = DataLoader(eval_source_dataset, batch_size = 1, shuffle = False)
         self.eval_target_loader = DataLoader(eval_target_dataset, batch_size = 1, shuffle = False)
 
-    def train(self, load_state = False, num_epochs = 3):
+    def train(self, load_state = False, num_epochs = 2000):
         if load_state:
             self.loadModel()
         print("Training model...")
@@ -126,7 +126,30 @@ class Model():
                 # Forward-inverse mapping: x -> y -> x'
                 fake_y = self.generator_xy(source_mcc_batch)
                 cycle_x = self.generator_yx(fake_y)
-
+                # if i % 10 == 0:
+                #     fake_y_np = fake_y.cpu().detach().numpy().squeeze(0)  # Remove unnecessary dimensions
+                #     source_mcc_np = source_mcc_batch.cpu().detach().numpy().squeeze(0)  # Remove unnecessary dimensions
+                #
+                #     # Create a figure with two subplots
+                #     fig, axs = plt.subplots(1, 2, figsize=(12, 6))  # 1 row, 2 columns
+                #
+                #     # Plot fake_y
+                #     axs[0].imshow(fake_y_np, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
+                #     axs[0].set_title('Fake Spectrogram')
+                #     axs[0].set_xlabel('Time Frames')
+                #     axs[0].set_ylabel('MCC Coefficients')
+                #     plt.colorbar(axs[0].images[0], ax=axs[0], orientation='vertical')
+                #
+                #     # Plot source_mcc_batch
+                #     axs[1].imshow(source_mcc_np, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
+                #     axs[1].set_title('Source MCC Batch')
+                #     axs[1].set_xlabel('Time Frames')
+                #     axs[1].set_ylabel('MCC Coefficients')
+                #     plt.colorbar(axs[1].images[0], ax=axs[1], orientation='vertical')
+                #
+                #     # Adjust layout
+                #     plt.tight_layout()
+                #     plt.show()
                 # Inverse-forward mapping: y -> x -> y'
                 fake_x = self.generator_yx(target_mcc_batch)
                 cycle_y = self.generator_xy(fake_x)
@@ -177,8 +200,9 @@ class Model():
                 self.d_optimizer_x.step()
                 self.d_optimizer_y.step()
 
-                if d_loss + generator_loss < self.top_score:
-                    self.top_score = d_loss + generator_loss
+                # if d_loss + generator_loss < self.top_score:
+                #     self.top_score = d_loss + generator_loss
+                if i == 80:
                     self.saveModel()
 
                 print(f"Epoch [{epoch + 1}/{num_epochs}] Batch {i + 1}/{len(self.source_loader)}: "
@@ -257,6 +281,7 @@ class Model():
         mean_log_f0 = data['mean_log_f0']
         std_log_f0 = data['std_log_f0']
         mcc = data['mcc'].T
+        mcc = u.scaleDown(mcc)
         ap = data['source_parameter']
         tf = data['time_frames']
         norm_log_f0_zoom_factor = (tf / norm_log_f0.size,)
@@ -274,7 +299,7 @@ class Model():
             else:
                 raise ValueError("Invalid pair, current model is not for the selected source and target")
             print(f"Probability synthesized audio is real: {is_real[0].item():.4f}")
-        fake_mcc = fake_mcc.squeeze(0).squeeze(0).cpu().numpy().T
+        fake_mcc = u.scaleUp(fake_mcc.squeeze(0).squeeze(0).cpu().numpy()).T
         mcc_zoom_factor = (tf / fake_mcc.shape[0], 1)
         fake_mcc = zoom(fake_mcc, mcc_zoom_factor, order = 1).astype(np.float64)
         synthesized_wav = u.reassembleWav(f0_target, fake_mcc, ap, 22050, 5)
