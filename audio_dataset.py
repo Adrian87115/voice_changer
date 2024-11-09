@@ -57,9 +57,6 @@ class AudioDataset(Dataset):
             data = np.load(file)
             norm_log_f0 = data['norm_log_f0']
             mcc = data['mcc']
-            start = random.randint(0, 384)
-            end = start + 128
-            mcc = mcc[start:end, :]
             source_parameter = data['source_parameter']
             time_frames = data['time_frames']
             if speaker_id == source:
@@ -78,3 +75,8 @@ class AudioDataset(Dataset):
 
 def getId(label):
     return all_labels.index(label)
+
+def getMccSlice(mcc):
+    max_start = max(0, mcc.shape[0] - 128)
+    start = random.randint(0, max_start)
+    return mcc[start:start + 128, :]

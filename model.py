@@ -30,16 +30,16 @@ class Model():
         self.criterion_adv = nn.MSELoss()
         self.criterion_cycle = nn.L1Loss()
         self.criterion_identity = nn.L1Loss()
-        self.g_scheduler_xy = StepLR(self.g_optimizer_xy, step_size = 100000, gamma = 0.1)
-        self.g_scheduler_yx = StepLR(self.g_optimizer_yx, step_size = 100000, gamma = 0.1)
-        self.d_scheduler_x = StepLR(self.d_optimizer_x, step_size = 100000, gamma = 0.1)
-        self.d_scheduler_y = StepLR(self.d_optimizer_y, step_size = 100000, gamma = 0.1)
+        self.g_scheduler_xy = StepLR(self.g_optimizer_xy, step_size = 10000, gamma = 0.1)
+        self.g_scheduler_yx = StepLR(self.g_optimizer_yx, step_size = 10000, gamma = 0.1)
+        self.d_scheduler_x = StepLR(self.d_optimizer_x, step_size = 10000, gamma = 0.1)
+        self.d_scheduler_y = StepLR(self.d_optimizer_y, step_size = 10000, gamma = 0.1)
         self.top_score = float('inf')
         self.source = source
         self.target = target
 
     def saveModel(self):
-        file_path = "saved_model.pth"
+        file_path = "saved_model4.pth"
         torch.save({
             'generator_xy_state_dict': self.generator_xy.state_dict(),
             'generator_yx_state_dict': self.generator_yx.state_dict(),
@@ -52,7 +52,7 @@ class Model():
             'top_score': self.top_score}, file_path)
 
     def loadModel(self):
-        file_path = "saved_model.pth"
+        file_path = "saved_model3.pth"
         checkpoint = torch.load(file_path)
         self.generator_xy.load_state_dict(checkpoint['generator_xy_state_dict'])
         self.generator_yx.load_state_dict(checkpoint['generator_yx_state_dict'])
@@ -93,7 +93,7 @@ class Model():
         self.eval_source_loader = DataLoader(eval_source_dataset, batch_size = 1, shuffle = False)
         self.eval_target_loader = DataLoader(eval_target_dataset, batch_size = 1, shuffle = False)
 
-    def train(self, load_state = False, num_epochs = 2000):
+    def train(self, load_state = False, num_epochs = 10):
         if load_state:
             self.loadModel()
         print("Training model...")
@@ -109,6 +109,8 @@ class Model():
                     target_sample = next(target_iter)
                 source_mcc_batch, _ = source_sample
                 target_mcc_batch, _ = target_sample
+                source_mcc_batch = torch.stack([torch.tensor(ad.getMccSlice(mcc)) for mcc in source_mcc_batch])
+                target_mcc_batch = torch.stack([torch.tensor(ad.getMccSlice(mcc)) for mcc in target_mcc_batch])
                 source_mcc_batch = source_mcc_batch.transpose(-1, -2)
                 target_mcc_batch = target_mcc_batch.transpose(-1, -2)
                 batch_size = source_mcc_batch.size(0)
@@ -202,13 +204,12 @@ class Model():
 
                 # if d_loss + generator_loss < self.top_score:
                 #     self.top_score = d_loss + generator_loss
-                if i == 80:
-                    self.saveModel()
 
                 print(f"Epoch [{epoch + 1}/{num_epochs}] Batch {i + 1}/{len(self.source_loader)}: "
                       f"D Loss: {d_loss.item():.4f}, G Loss: {generator_loss.item():.4f}, "
                       f"Cycle Loss: {cycle_loss.item():.4f}")
 
+            self.saveModel()
             avg_eval_loss_xy, avg_eval_loss_yx, avg_cycle_loss, avg_adv_loss = self.evaluate()
             print(f"xy loss: {avg_eval_loss_xy:.4f}, yx loss: {avg_eval_loss_yx:.4f}, Cycle loss: {avg_cycle_loss:.4f}, Adv loss: {avg_adv_loss:.4f}")
 
@@ -232,6 +233,7 @@ class Model():
         with torch.no_grad():
             for eval_sample in self.eval_source_loader:
                 eval_mcc_batch, eval_speaker_id_batch = eval_sample
+                eval_mcc_batch = torch.stack([torch.tensor(ad.getMccSlice(mcc)) for mcc in eval_mcc_batch])
                 eval_mcc_batch = eval_mcc_batch.transpose(-1, -2).to(self.device)
 
                 fake_y = self.generator_xy(eval_mcc_batch)
@@ -250,6 +252,7 @@ class Model():
 
             for eval_sample in self.eval_target_loader:
                 eval_mcc_batch, eval_speaker_id_batch = eval_sample
+                eval_mcc_batch = torch.stack([torch.tensor(ad.getMccSlice(mcc)) for mcc in eval_mcc_batch])
                 eval_mcc_batch = eval_mcc_batch.transpose(-1, -2).to(self.device)
 
                 fake_x = self.generator_yx(eval_mcc_batch)
@@ -281,27 +284,37 @@ class Model():
         mean_log_f0 = data['mean_log_f0']
         std_log_f0 = data['std_log_f0']
         mcc = data['mcc'].T
-        mcc = u.scaleDown(mcc)
         ap = data['source_parameter']
         tf = data['time_frames']
         norm_log_f0_zoom_factor = (tf / norm_log_f0.size,)
         norm_log_f0 = zoom(norm_log_f0, norm_log_f0_zoom_factor, order = 1)
         log_f0 = mean_log_f0 + std_log_f0 * norm_log_f0
         f0_target = np.exp(log_f0) - 1e-5
-        mcc_tensor = torch.tensor(mcc, dtype = torch.float32).unsqueeze(0).to(self.device)
-        with torch.no_grad():
-            if source == self.source and target == self.target:
-                fake_mcc = self.generator_xy(mcc_tensor)
-                is_real = self.discriminator_y(fake_mcc)
-            elif source == self.target and target == self.source:
-                fake_mcc = self.generator_yx(mcc_tensor)
-                is_real = self.discriminator_x(fake_mcc)
-            else:
-                raise ValueError("Invalid pair, current model is not for the selected source and target")
-            print(f"Probability synthesized audio is real: {is_real[0].item():.4f}")
-        fake_mcc = u.scaleUp(fake_mcc.squeeze(0).squeeze(0).cpu().numpy()).T
+
+        chunk_size = 128
+        num_chunks = (mcc.shape[1] + chunk_size - 1) // chunk_size
+        fake_mcc_chunks = []
+
+        for i in range(num_chunks):
+            start = i * chunk_size
+            end = min(start + chunk_size, mcc.shape[1])
+            mcc_chunk = mcc[:, start:end]
+            mcc_tensor = torch.tensor(mcc_chunk, dtype=torch.float32).unsqueeze(0).to(self.device)
+            with torch.no_grad():
+                if source == self.source and target == self.target:
+                    fake_mcc_chunk = self.generator_xy(mcc_tensor)
+                    is_real = self.discriminator_y(fake_mcc_chunk)
+                elif source == self.target and target == self.source:
+                    fake_mcc_chunk = self.generator_yx(mcc_tensor)
+                    is_real = self.discriminator_x(fake_mcc_chunk)
+                else:
+                    raise ValueError("Invalid pair, current model is not for the selected source and target")
+                fake_mcc_chunks.append(fake_mcc_chunk.squeeze(0).cpu().numpy())
+                print(f"Probability synthesized audio is real for chunk {i}: {is_real[0].item():.4f}")
+        fake_mcc = np.concatenate(fake_mcc_chunks, axis=1)
+        fake_mcc = fake_mcc.T
         mcc_zoom_factor = (tf / fake_mcc.shape[0], 1)
-        fake_mcc = zoom(fake_mcc, mcc_zoom_factor, order = 1).astype(np.float64)
+        fake_mcc = zoom(fake_mcc, mcc_zoom_factor, order=1).astype(np.float64)
         synthesized_wav = u.reassembleWav(f0_target, fake_mcc, ap, 22050, 5)
         u.saveWav(synthesized_wav, "out_synthesized.wav", 22050)
 
