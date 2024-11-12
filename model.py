@@ -23,10 +23,10 @@ class Model():
         self.generator_yx = g.Generator().to(self.device)
         self.discriminator_x = d.Discriminator().to(self.device)
         self.discriminator_y = d.Discriminator().to(self.device)
-        self.g_optimizer_xy = optim.Adam(self.generator_xy.parameters(), lr = 0.0002, betas = (0.5, 0.999))
-        self.g_optimizer_yx = optim.Adam(self.generator_yx.parameters(), lr = 0.0002, betas = (0.5, 0.999))
-        self.d_optimizer_x = optim.Adam(self.discriminator_x.parameters(), lr = 0.0001, betas = (0.5, 0.999))
-        self.d_optimizer_y = optim.Adam(self.discriminator_y.parameters(), lr = 0.0001, betas = (0.5, 0.999))
+        self.g_optimizer_xy = optim.Adam(self.generator_xy.parameters(), lr = 0.00002, betas = (0.5, 0.999))
+        self.g_optimizer_yx = optim.Adam(self.generator_yx.parameters(), lr = 0.00002, betas = (0.5, 0.999))
+        self.d_optimizer_x = optim.Adam(self.discriminator_x.parameters(), lr = 0.00001, betas = (0.5, 0.999))
+        self.d_optimizer_y = optim.Adam(self.discriminator_y.parameters(), lr = 0.00001, betas = (0.5, 0.999))
         self.criterion_adv = nn.MSELoss()
         self.criterion_cycle = nn.L1Loss()
         self.criterion_identity = nn.L1Loss()
@@ -34,12 +34,11 @@ class Model():
         self.g_scheduler_yx = StepLR(self.g_optimizer_yx, step_size = 10000, gamma = 0.1)
         self.d_scheduler_x = StepLR(self.d_optimizer_x, step_size = 10000, gamma = 0.1)
         self.d_scheduler_y = StepLR(self.d_optimizer_y, step_size = 10000, gamma = 0.1)
-        self.top_score = float('inf')
         self.source = source
         self.target = target
 
-    def saveModel(self):
-        file_path = "saved_model4.pth"
+    def saveModel(self, epoch):
+        file_path = f"saved_model_epoch_{epoch}.pth"
         torch.save({
             'generator_xy_state_dict': self.generator_xy.state_dict(),
             'generator_yx_state_dict': self.generator_yx.state_dict(),
@@ -48,11 +47,10 @@ class Model():
             'g_optimizer_xy_state_dict': self.g_optimizer_xy.state_dict(),
             'g_optimizer_yx_state_dict': self.g_optimizer_yx.state_dict(),
             'd_optimizer_x_state_dict': self.d_optimizer_x.state_dict(),
-            'd_optimizer_y_state_dict': self.d_optimizer_y.state_dict(),
-            'top_score': self.top_score}, file_path)
+            'd_optimizer_y_state_dict': self.d_optimizer_y.state_dict()}, file_path)
 
     def loadModel(self):
-        file_path = "saved_model3.pth"
+        file_path = "saved_model_epoch_100.pth"
         checkpoint = torch.load(file_path)
         self.generator_xy.load_state_dict(checkpoint['generator_xy_state_dict'])
         self.generator_yx.load_state_dict(checkpoint['generator_yx_state_dict'])
@@ -62,7 +60,6 @@ class Model():
         self.g_optimizer_yx.load_state_dict(checkpoint['g_optimizer_yx_state_dict'])
         self.d_optimizer_x.load_state_dict(checkpoint['d_optimizer_x_state_dict'])
         self.d_optimizer_y.load_state_dict(checkpoint['d_optimizer_y_state_dict'])
-        self.top_score = checkpoint['top_score']
 
     def reset_grad(self):
         self.g_optimizer_xy.zero_grad()
@@ -71,29 +68,23 @@ class Model():
         self.d_optimizer_y.zero_grad()
 
     def getData(self, source, target):
-        path_train = "training_data/resized_audio" #first 8 are source, next 4 are target
-        path_eval = "evaluation_data/resized_audio" #used to evaluate results, the output should be compared to the reference
-        path_ref = "reference_data/resized_audio" #used to compare original to created by listening to them
+        path_train = "training_data/transformed_audio" #first 8 are source, next 4 are target
+        path_eval = "evaluation_data/transformed_audio" #used to evaluate results, the output should be compared to the reference
+        path_ref = "reference_data/transformed_audio" #used to compare original to created by listening to them
         self.train_dataset = ad.AudioDataset(path_train, source, target)
         self.eval_dataset = ad.AudioDataset(path_eval, source, target)
-        source_mcc = torch.stack([torch.tensor(x, dtype = torch.float32) for x in self.train_dataset.source_mcc])
-        target_mcc = torch.stack([torch.tensor(x, dtype = torch.float32) for x in self.train_dataset.target_mcc])
-        eval_source_mcc = torch.stack([torch.tensor(x, dtype = torch.float32) for x in self.eval_dataset.source_mcc])
-        eval_target_mcc = torch.stack([torch.tensor(x, dtype = torch.float32) for x in self.eval_dataset.target_mcc])
-        source_labels = torch.tensor([ad.getId(source)] * len(self.train_dataset.source_mcc), dtype = torch.long)
-        target_labels = torch.tensor([ad.getId(target)] * len(self.train_dataset.target_mcc), dtype = torch.long)
-        eval_source_labels = torch.tensor([ad.getId(source)] * len(self.eval_dataset.source_mcc), dtype = torch.long)
-        eval_target_labels = torch.tensor([ad.getId(target)] * len(self.eval_dataset.target_mcc), dtype = torch.long)
-        source_dataset = TensorDataset(source_mcc, source_labels)
-        target_dataset = TensorDataset(target_mcc, target_labels)
-        eval_source_dataset = TensorDataset(eval_source_mcc, eval_source_labels)
-        eval_target_dataset = TensorDataset(eval_target_mcc, eval_target_labels)
+
+        source_dataset = u.MCCDataset(self.train_dataset.source_mcc, ad.getId(source))
+        target_dataset = u.MCCDataset(self.train_dataset.target_mcc, ad.getId(target))
+        eval_source_dataset = u.MCCDataset(self.eval_dataset.source_mcc, ad.getId(source))
+        eval_target_dataset = u.MCCDataset(self.eval_dataset.target_mcc, ad.getId(target))
+
         self.source_loader = DataLoader(source_dataset, batch_size = 1, shuffle = False)
         self.target_loader = DataLoader(target_dataset, batch_size = 1, shuffle = False)
         self.eval_source_loader = DataLoader(eval_source_dataset, batch_size = 1, shuffle = False)
         self.eval_target_loader = DataLoader(eval_target_dataset, batch_size = 1, shuffle = False)
 
-    def train(self, load_state = False, num_epochs = 10):
+    def train(self, load_state = False, num_epochs = 2000):
         if load_state:
             self.loadModel()
         print("Training model...")
@@ -115,7 +106,6 @@ class Model():
                 target_mcc_batch = target_mcc_batch.transpose(-1, -2)
                 batch_size = source_mcc_batch.size(0)
                 target_batch_size = target_mcc_batch.size(0)
-
                 if target_batch_size < batch_size:
                     repeat_factor = (batch_size + target_batch_size - 1) // target_batch_size
                     target_mcc_batch = target_mcc_batch.repeat(repeat_factor, 1, 1)[:batch_size]
@@ -128,30 +118,7 @@ class Model():
                 # Forward-inverse mapping: x -> y -> x'
                 fake_y = self.generator_xy(source_mcc_batch)
                 cycle_x = self.generator_yx(fake_y)
-                # if i % 10 == 0:
-                #     fake_y_np = fake_y.cpu().detach().numpy().squeeze(0)  # Remove unnecessary dimensions
-                #     source_mcc_np = source_mcc_batch.cpu().detach().numpy().squeeze(0)  # Remove unnecessary dimensions
-                #
-                #     # Create a figure with two subplots
-                #     fig, axs = plt.subplots(1, 2, figsize=(12, 6))  # 1 row, 2 columns
-                #
-                #     # Plot fake_y
-                #     axs[0].imshow(fake_y_np, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
-                #     axs[0].set_title('Fake Spectrogram')
-                #     axs[0].set_xlabel('Time Frames')
-                #     axs[0].set_ylabel('MCC Coefficients')
-                #     plt.colorbar(axs[0].images[0], ax=axs[0], orientation='vertical')
-                #
-                #     # Plot source_mcc_batch
-                #     axs[1].imshow(source_mcc_np, aspect='auto', origin='lower', cmap='viridis', interpolation='none')
-                #     axs[1].set_title('Source MCC Batch')
-                #     axs[1].set_xlabel('Time Frames')
-                #     axs[1].set_ylabel('MCC Coefficients')
-                #     plt.colorbar(axs[1].images[0], ax=axs[1], orientation='vertical')
-                #
-                #     # Adjust layout
-                #     plt.tight_layout()
-                #     plt.show()
+
                 # Inverse-forward mapping: y -> x -> y'
                 fake_x = self.generator_yx(target_mcc_batch)
                 cycle_y = self.generator_xy(fake_x)
@@ -202,14 +169,13 @@ class Model():
                 self.d_optimizer_x.step()
                 self.d_optimizer_y.step()
 
-                # if d_loss + generator_loss < self.top_score:
-                #     self.top_score = d_loss + generator_loss
-
                 print(f"Epoch [{epoch + 1}/{num_epochs}] Batch {i + 1}/{len(self.source_loader)}: "
                       f"D Loss: {d_loss.item():.4f}, G Loss: {generator_loss.item():.4f}, "
                       f"Cycle Loss: {cycle_loss.item():.4f}")
 
-            self.saveModel()
+            if (epoch + 1) % 50 == 0:
+                self.saveModel(epoch + 1)
+
             avg_eval_loss_xy, avg_eval_loss_yx, avg_cycle_loss, avg_adv_loss = self.evaluate()
             print(f"xy loss: {avg_eval_loss_xy:.4f}, yx loss: {avg_eval_loss_yx:.4f}, Cycle loss: {avg_cycle_loss:.4f}, Adv loss: {avg_adv_loss:.4f}")
 
@@ -217,7 +183,6 @@ class Model():
             self.g_scheduler_yx.step()
             self.d_scheduler_x.step()
             self.d_scheduler_y.step()
-            print("Min total loss: ", self.top_score)
 
     def evaluate(self):
         self.loadModel()

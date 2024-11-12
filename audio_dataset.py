@@ -77,6 +77,8 @@ def getId(label):
     return all_labels.index(label)
 
 def getMccSlice(mcc):
+    if(len(mcc.shape) == 3):
+        mcc = mcc.squeeze(0)
     max_start = max(0, mcc.shape[0] - 128)
     start = random.randint(0, max_start)
     return mcc[start:start + 128, :]

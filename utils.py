@@ -4,6 +4,19 @@ import numpy as np
 import soundfile as sf
 import os
 from scipy.ndimage import zoom
+from torch.utils.data import Dataset
+import torch
+
+class MCCDataset(Dataset):
+    def __init__(self, mcc_data, label_id):
+        self.mcc_data = [torch.tensor(mcc, dtype=torch.float32) for mcc in mcc_data]
+        self.label_id = label_id
+
+    def __len__(self):
+        return len(self.mcc_data)
+
+    def __getitem__(self, idx):
+        return self.mcc_data[idx], self.label_id
 
 def scaleDown(mcc, target_size = 128):
     original_size = mcc.shape[1]
@@ -116,4 +129,3 @@ def resizeBatchAudio(input_dir):
 # resizeBatchAudio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/training_data/transformed_audio")
 # resizeBatchAudio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/reference_data/transformed_audio")
 # resizeBatchAudio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/evaluation_data/transformed_audio")
-
