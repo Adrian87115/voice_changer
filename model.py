@@ -50,7 +50,7 @@ class Model():
             'd_optimizer_y_state_dict': self.d_optimizer_y.state_dict()}, file_path)
 
     def loadModel(self):
-        file_path = "saved_model_epoch_100.pth"
+        file_path = "saved_model_init280.pth"
         checkpoint = torch.load(file_path)
         self.generator_xy.load_state_dict(checkpoint['generator_xy_state_dict'])
         self.generator_yx.load_state_dict(checkpoint['generator_yx_state_dict'])
@@ -297,12 +297,12 @@ class Model():
         plt.ylabel('MCC Coefficients')
         plt.show()
 
-        plt.imshow(mcc, aspect = 'auto', origin = 'lower', cmap = 'viridis', interpolation = 'none')
-        plt.colorbar()
-        plt.title('Original Spectrogram')
-        plt.xlabel('Time Frames')
-        plt.ylabel('MCC Coefficients')
-        plt.show()
+        # plt.imshow(mcc, aspect = 'auto', origin = 'lower', cmap = 'viridis', interpolation = 'none')
+        # plt.colorbar()
+        # plt.title('Original Spectrogram')
+        # plt.xlabel('Time Frames')
+        # plt.ylabel('MCC Coefficients')
+        # plt.show()
 
         # plt.imshow(ap, aspect = 'auto', origin = 'lower', cmap = 'viridis', interpolation = 'none')
         # plt.colorbar()

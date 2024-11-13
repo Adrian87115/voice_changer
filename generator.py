@@ -135,7 +135,6 @@ class Generator(nn.Module):
                                        kernel_size = kernel_size,
                                        stride = stride,
                                        padding = padding),
-                             # nn.PixelShuffle(upscale_factor = 2), # very time and resources costly, without rewarding results
                              up2Dsample(upscale_factor = 2),
                              nn.InstanceNorm2d(num_features = out_channels, affine = True),
                              GLU())
