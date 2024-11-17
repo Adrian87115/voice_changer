@@ -36,6 +36,7 @@ class Model():
         self.d_scheduler_y = StepLR(self.d_optimizer_y, step_size = 10000, gamma = 0.1)
         self.source = source
         self.target = target
+        self.iteration = 0
 
     def saveModel(self, epoch):
         file_path = f"saved_model_epoch_{epoch}.pth"
@@ -47,10 +48,11 @@ class Model():
             'g_optimizer_xy_state_dict': self.g_optimizer_xy.state_dict(),
             'g_optimizer_yx_state_dict': self.g_optimizer_yx.state_dict(),
             'd_optimizer_x_state_dict': self.d_optimizer_x.state_dict(),
-            'd_optimizer_y_state_dict': self.d_optimizer_y.state_dict()}, file_path)
+            'd_optimizer_y_state_dict': self.d_optimizer_y.state_dict(),
+            'iteration': self.iteration}, file_path)
 
     def loadModel(self):
-        file_path = "saved_model_epoch_100.pth"
+        file_path = "saved_model_epoch_20.pth"
         checkpoint = torch.load(file_path)
         self.generator_xy.load_state_dict(checkpoint['generator_xy_state_dict'])
         self.generator_yx.load_state_dict(checkpoint['generator_yx_state_dict'])
@@ -60,6 +62,7 @@ class Model():
         self.g_optimizer_yx.load_state_dict(checkpoint['g_optimizer_yx_state_dict'])
         self.d_optimizer_x.load_state_dict(checkpoint['d_optimizer_x_state_dict'])
         self.d_optimizer_y.load_state_dict(checkpoint['d_optimizer_y_state_dict'])
+        self.iteration = checkpoint['iteration']
 
     def reset_grad(self):
         self.g_optimizer_xy.zero_grad()
@@ -93,6 +96,9 @@ class Model():
         for epoch in range(num_epochs):
             target_iter = iter(self.target_loader)
             for i, source_sample in enumerate(self.source_loader):
+                self.iteration += 1
+                if self.iteration > 10000:
+                    identity_loss_lambda = 0
                 try:
                     target_sample = next(target_iter)
                 except StopIteration:

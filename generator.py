@@ -56,14 +56,13 @@ class Generator(nn.Module):
                                       stride = 2,
                                       padding = 2)
         self.down2 = self._down_block(in_channels = 256,
-                                      out_channels = 256,
+                                      out_channels = 512,
                                       kernel_size = 5,
                                       stride = 2,
                                       padding = 2)
-        self.conv2 = nn.Sequential(nn.Conv1d(in_channels = 2304,
+        self.conv2 = nn.Sequential(nn.Conv1d(in_channels = 4608,
                                              out_channels = 256,
                                              kernel_size = 1,
-                                             stride = 1,
                                              padding = 0),
                                    nn.InstanceNorm1d(num_features = 256, affine = True))
         self.residual1 = ResidualLayer(in_channels = 256,
@@ -97,12 +96,12 @@ class Generator(nn.Module):
                                        stride = 1,
                                        padding = 1)
         self.conv3 = nn.Sequential(nn.Conv1d(in_channels = 256,
-                                             out_channels = 2304,
+                                             out_channels = 4608,
                                              kernel_size = 1,
                                              stride = 1,
                                              padding = 0),
-                                   nn.InstanceNorm1d(num_features = 2304, affine = True))
-        self.up1 = self._up_block(in_channels = 256,
+                                   nn.InstanceNorm1d(num_features = 4608, affine = True))
+        self.up1 = self._up_block(in_channels = 512,
                                   out_channels = 1024,
                                   kernel_size = 5,
                                   stride = 1,
@@ -159,5 +158,5 @@ class Generator(nn.Module):
         up2 = self.up2(up1)
         output = self.conv4(up2)
         output = output.view([output.shape[0], -1, output.shape[3]])
-        output = output[:, 1:, :]
+        output = output[:, :35, :]
         return output
