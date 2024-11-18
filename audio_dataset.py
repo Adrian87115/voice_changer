@@ -2,6 +2,7 @@ import os
 from torch.utils.data import Dataset
 import numpy as np
 import random
+import matplotlib.pyplot as plt
 
 all_labels = ["VCC2SF1",
               "VCC2SF2",
@@ -27,12 +28,15 @@ class AudioDataset(Dataset):
         self.file_list = None
         self.labels = []
         self.source_mcep = []
-        self.source_parameter = []
         self.source_time_frames = []
+        self.source_mean = None
+        self.source_std = None
         self.target_mcep = []
-        self.target_parameter = []
         self.target_time_frames = []
+        self.target_mean = None
+        self.target_std = None
         self.getData(source, target)
+        self.normalize()
 
     def getFileListAndSpeakers(self, source, target):
         file_list = []
@@ -61,6 +65,38 @@ class AudioDataset(Dataset):
             elif speaker_id == target:
                 self.target_mcep.append(mcep)
                 self.target_time_frames.append(time_frames)
+
+    def normalize(self):
+        merged_source_mcep = np.concatenate(self.source_mcep, axis=0)
+        self.source_mean = np.mean(merged_source_mcep)
+        self.source_std = np.std(merged_source_mcep)
+        for i in range(len(self.source_mcep)):
+            self.source_mcep[i] = (self.source_mcep[i] - self.source_mean) / (self.source_std + 1e-8)
+        merged_target_mcep = np.concatenate(self.target_mcep, axis=0)
+        self.target_mean = np.mean(merged_target_mcep)
+        self.target_std = np.std(merged_target_mcep)
+        for i in range(len(self.target_mcep)):
+            self.target_mcep[i] = (self.target_mcep[i] - self.target_mean) / (self.target_std + 1e-8)
+
+    def getSourceNorm(self, source = True):
+        if source:
+            return self.source_mean, self.source_std
+        else:
+            return self.target_mean, self.target_std
+
+    def normalizeMcep(self, mcep, source=True):
+        if source:
+            mcep = (mcep - self.source_mean) / self.source_std
+        else:
+            mcep = (mcep - self.target_mean) / self.target_std
+        return mcep
+
+    def denormalizeMcep(self, mcep, source=True):
+        if source:
+            mcep = mcep * self.source_std + self.source_mean
+        else:
+            mcep = mcep * self.target_std + self.target_mean
+        return mcep
 
     def __len__(self):
         return len(self.source_mcep) + len(self.target_mcep)

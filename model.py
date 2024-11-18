@@ -52,7 +52,7 @@ class Model():
             'iteration': self.iteration}, file_path)
 
     def loadModel(self):
-        file_path = "saved_model_epoch_20.pth"
+        file_path = "saved_model5_init325.pth"
         checkpoint = torch.load(file_path)
         self.generator_xy.load_state_dict(checkpoint['generator_xy_state_dict'])
         self.generator_yx.load_state_dict(checkpoint['generator_yx_state_dict'])
@@ -64,7 +64,7 @@ class Model():
         self.d_optimizer_y.load_state_dict(checkpoint['d_optimizer_y_state_dict'])
         self.iteration = checkpoint['iteration']
 
-    def reset_grad(self):
+    def resetGrad(self):
         self.g_optimizer_xy.zero_grad()
         self.g_optimizer_yx.zero_grad()
         self.d_optimizer_x.zero_grad()
@@ -151,7 +151,7 @@ class Model():
 
                 generator_loss = generator_loss_xy + generator_loss_yx + generator_loss_cycle_x + generator_loss_cycle_y + cycle_loss_lambda * cycle_loss + identity_loss_lambda * identity_loss
 
-                self.reset_grad()
+                self.resetGrad()
                 generator_loss.backward()
                 self.g_optimizer_xy.step()
                 self.g_optimizer_yx.step()
@@ -178,7 +178,7 @@ class Model():
 
                 d_loss = (d_loss_x + d_loss_y) / 2.0
 
-                self.reset_grad()
+                self.resetGrad()
                 d_loss.backward()
                 self.d_optimizer_x.step()
                 self.d_optimizer_y.step()
@@ -261,6 +261,14 @@ class Model():
         data = np.load(path_to_source_data)
         log_f0 = data['log_f0']
         mcep = data['mcep'].T
+
+        if source == self.source:
+            mcep = self.train_dataset.normalizeMcep(mcep, True)
+        elif source == self.target:
+            mcep = self.train_dataset.normalizeMcep(mcep, False)
+        else:
+            raise ValueError("Invalid pair, current model is not for the selected source and target")
+
         ap = data['source_parameter']
         tf = data['time_frames']
         pitch_dataset = ad.PitchDataset("evaluation_data/transformed_audio", source, target)
@@ -268,7 +276,6 @@ class Model():
         chunk_size = 128
         num_chunks = (mcep.shape[1] + chunk_size - 1) // chunk_size
         fake_mcep_chunks = []
-
         for i in range(num_chunks):
             start = i * chunk_size
             end = min(start + chunk_size, mcep.shape[1])
@@ -281,7 +288,13 @@ class Model():
                     fake_mcep_chunk = self.generator_yx(mcep_tensor)
                 else:
                     raise ValueError("Invalid pair, current model is not for the selected source and target")
-                fake_mcep_chunks.append(fake_mcep_chunk.squeeze(0).cpu().numpy())
+                if source == self.source:
+                    fake_mcep_chunk = fake_mcep_chunk.squeeze(0).cpu().numpy()
+                    fake_mcep_chunk = self.train_dataset.denormalizeMcep(fake_mcep_chunk, True)
+                elif source == self.target:
+                    fake_mcep_chunk = fake_mcep_chunk.squeeze(0).cpu().numpy()
+                    fake_mcep_chunk = self.train_dataset.denormalizeMcep(fake_mcep_chunk, False)
+                fake_mcep_chunks.append(fake_mcep_chunk)
         fake_mcep = np.concatenate(fake_mcep_chunks, axis=1)
         fake_mcep = fake_mcep.T
         mcep_zoom_factor = (tf / fake_mcep.shape[0], 1)
@@ -303,7 +316,7 @@ class Model():
         plt.ylabel('MCEP Coefficients')
         plt.show()
 
-        plt.imshow(mcep, aspect = 'auto', origin = 'lower', cmap = 'viridis', interpolation = 'none')
+        plt.imshow(self.train_dataset.denormalizeMcep(mcep, True), aspect = 'auto', origin = 'lower', cmap = 'viridis', interpolation = 'none')
         plt.colorbar()
         plt.title('Original Spectrogram')
         plt.xlabel('Time Frames')
