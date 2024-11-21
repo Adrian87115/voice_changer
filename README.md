@@ -28,4 +28,5 @@ Based on:
 
 Training data: https://datashare.ed.ac.uk/handle/10283/3061
 
-Folder results/samples contains examples of conversion during different stages of training between VCC2SF1 and VCC2SM2
+Folder results/samples contains examples of conversion during different stages of training between VCC2SF1 and VCC2SM2.
+The final result is after 200,000 iterations.
