@@ -134,8 +134,4 @@ def processAudio(input_filename, output_filename):
 # processWav("C:/Users/adria/Desktop/test/audio/VCC2SF1/10001.wav", "C:/Users/adria/Desktop/test/audio/VCC2SF1/output.wav", fs = 22050, frame_period = 5.0, mcep_dim = 35)
 
 # batchProcessAudio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/training_data/audio")
-# batchProcessAudio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/reference_data/audio")
 # batchProcessAudio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/evaluation_data/audio")
-
-# dataset = ad.PitchDataset(root_dir="evaluation_data/transformed_audio", source = "VCC2SF1", target = "VCC2SM2")
-# pitchShiftWavFileTest(dataset, "C:/Users/adria/Desktop/30004_f.wav", "C:/Users/adria/Desktop/output_audio_shifted.wav")

@@ -23,17 +23,17 @@ class Model():
         self.generator_yx = g.Generator().to(self.device)
         self.discriminator_x = d.Discriminator().to(self.device)
         self.discriminator_y = d.Discriminator().to(self.device)
-        self.g_optimizer_xy = optim.Adam(self.generator_xy.parameters(), lr = 0.0002, betas = (0.5, 0.999))
-        self.g_optimizer_yx = optim.Adam(self.generator_yx.parameters(), lr = 0.0002, betas = (0.5, 0.999))
-        self.d_optimizer_x = optim.Adam(self.discriminator_x.parameters(), lr = 0.0001, betas = (0.5, 0.999))
-        self.d_optimizer_y = optim.Adam(self.discriminator_y.parameters(), lr = 0.0001, betas = (0.5, 0.999))
+        self.g_optimizer_xy = optim.Adam(self.generator_xy.parameters(), lr = 0.000002, betas = (0.5, 0.999))
+        self.g_optimizer_yx = optim.Adam(self.generator_yx.parameters(), lr = 0.000002, betas = (0.5, 0.999))
+        self.d_optimizer_x = optim.Adam(self.discriminator_x.parameters(), lr = 0.000001, betas = (0.5, 0.999))
+        self.d_optimizer_y = optim.Adam(self.discriminator_y.parameters(), lr = 0.000001, betas = (0.5, 0.999))
         self.criterion_adv = nn.MSELoss()
         self.criterion_cycle = nn.L1Loss()
         self.criterion_identity = nn.L1Loss()
-        self.g_scheduler_xy = StepLR(self.g_optimizer_xy, step_size = 10000, gamma = 0.1)
-        self.g_scheduler_yx = StepLR(self.g_optimizer_yx, step_size = 10000, gamma = 0.1)
-        self.d_scheduler_x = StepLR(self.d_optimizer_x, step_size = 10000, gamma = 0.1)
-        self.d_scheduler_y = StepLR(self.d_optimizer_y, step_size = 10000, gamma = 0.1)
+        self.g_scheduler_xy = StepLR(self.g_optimizer_xy, step_size = 100000, gamma = 0.1)
+        self.g_scheduler_yx = StepLR(self.g_optimizer_yx, step_size = 100000, gamma = 0.1)
+        self.d_scheduler_x = StepLR(self.d_optimizer_x, step_size = 100000, gamma = 0.1)
+        self.d_scheduler_y = StepLR(self.d_optimizer_y, step_size = 100000, gamma = 0.1)
         self.source = source
         self.target = target
         self.iteration = 0
@@ -52,7 +52,7 @@ class Model():
             'iteration': self.iteration}, file_path)
 
     def loadModel(self):
-        file_path = "saved_model5_init325.pth"
+        file_path = "temp_1965.pth"
         checkpoint = torch.load(file_path)
         self.generator_xy.load_state_dict(checkpoint['generator_xy_state_dict'])
         self.generator_yx.load_state_dict(checkpoint['generator_yx_state_dict'])
@@ -71,9 +71,8 @@ class Model():
         self.d_optimizer_y.zero_grad()
 
     def getData(self, source, target):
-        path_train = "training_data/transformed_audio" #first 8 are source, next 4 are target
-        path_eval = "evaluation_data/transformed_audio" #used to evaluate results, the output should be compared to the reference
-        path_ref = "reference_data/transformed_audio" #used to compare original to created by listening to them
+        path_train = "training_data/transformed_audio"
+        path_eval = "evaluation_data/transformed_audio"
         self.train_dataset = ad.AudioDataset(path_train, source, target)
         self.eval_dataset = ad.AudioDataset(path_eval, source, target)
 
@@ -87,7 +86,7 @@ class Model():
         self.eval_source_loader = DataLoader(eval_source_dataset, batch_size = 1, shuffle = False)
         self.eval_target_loader = DataLoader(eval_target_dataset, batch_size = 1, shuffle = False)
 
-    def train(self, load_state = False, num_epochs = 100):
+    def train(self, load_state = False, num_epochs = 1000):
         if load_state:
             self.loadModel()
         print("Training model...")
@@ -187,7 +186,7 @@ class Model():
                       f"D Loss: {d_loss.item():.4f}, G Loss: {generator_loss.item():.4f}, "
                       f"Cycle Loss: {cycle_loss.item():.4f}")
 
-            if (epoch + 1) % 20 == 0:
+            if (epoch + 1) % 50 == 0:
                 self.saveModel(epoch + 1)
 
             # avg_eval_loss_xy, avg_eval_loss_yx, avg_cycle_loss, avg_adv_loss = self.evaluate()
@@ -302,7 +301,7 @@ class Model():
         synthesized_wav = u.reassembleWav(f0_converted, fake_mcep, ap, 22050, 5)
         u.saveWav(synthesized_wav, "out_synthesized.wav", 22050)
 
-        # plt.plot(f0_target)
+        # plt.plot(f0_converted)
         # plt.title('Pitch Contour (f0)')
         # plt.xlabel('Time Frames')
         # plt.ylabel('Pitch (Hz)')
