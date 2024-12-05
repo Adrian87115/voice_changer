@@ -23,11 +23,11 @@ class Model():
         self.generator_yx = g.Generator().to(self.device)
         self.discriminator_x = d.Discriminator().to(self.device)
         self.discriminator_y = d.Discriminator().to(self.device)
-        self.g_optimizer_xy = optim.Adam(self.generator_xy.parameters(), lr = 0.000002, betas = (0.5, 0.999))
-        self.g_optimizer_yx = optim.Adam(self.generator_yx.parameters(), lr = 0.000002, betas = (0.5, 0.999))
-        self.d_optimizer_x = optim.Adam(self.discriminator_x.parameters(), lr = 0.000001, betas = (0.5, 0.999))
-        self.d_optimizer_y = optim.Adam(self.discriminator_y.parameters(), lr = 0.000001, betas = (0.5, 0.999))
-        self.criterion_adv = nn.MSELoss()
+        self.g_optimizer_xy = optim.Adam(self.generator_xy.parameters(), lr = 0.0002, betas = (0.5, 0.999))
+        self.g_optimizer_yx = optim.Adam(self.generator_yx.parameters(), lr = 0.0002, betas = (0.5, 0.999))
+        self.d_optimizer_x = optim.Adam(self.discriminator_x.parameters(), lr = 0.0001, betas = (0.5, 0.999))
+        self.d_optimizer_y = optim.Adam(self.discriminator_y.parameters(), lr = 0.0001, betas = (0.5, 0.999))
+        self.criterion_adv = nn.MSELoss()# change this
         self.criterion_cycle = nn.L1Loss()
         self.criterion_identity = nn.L1Loss()
         self.g_scheduler_xy = StepLR(self.g_optimizer_xy, step_size = 100000, gamma = 0.1)
@@ -52,7 +52,7 @@ class Model():
             'iteration': self.iteration}, file_path)
 
     def loadModel(self):
-        file_path = "temp_1965.pth"
+        file_path = "saved_model_epoch_20.pth"
         checkpoint = torch.load(file_path)
         self.generator_xy.load_state_dict(checkpoint['generator_xy_state_dict'])
         self.generator_yx.load_state_dict(checkpoint['generator_yx_state_dict'])
@@ -81,10 +81,10 @@ class Model():
         eval_source_dataset = u.MCEPDataset(self.eval_dataset.source_mcep, ad.getId(source))
         eval_target_dataset = u.MCEPDataset(self.eval_dataset.target_mcep, ad.getId(target))
 
-        self.source_loader = DataLoader(source_dataset, batch_size = 1, shuffle = False)
-        self.target_loader = DataLoader(target_dataset, batch_size = 1, shuffle = False)
-        self.eval_source_loader = DataLoader(eval_source_dataset, batch_size = 1, shuffle = False)
-        self.eval_target_loader = DataLoader(eval_target_dataset, batch_size = 1, shuffle = False)
+        self.source_loader = DataLoader(source_dataset, batch_size = 1, shuffle = False, num_workers = 1, pin_memory = True)
+        self.target_loader = DataLoader(target_dataset, batch_size = 1, shuffle = False, num_workers = 1, pin_memory = True)
+        self.eval_source_loader = DataLoader(eval_source_dataset, batch_size = 1, shuffle = False, num_workers = 1, pin_memory = True)
+        self.eval_target_loader = DataLoader(eval_target_dataset, batch_size = 1, shuffle = False, num_workers = 1, pin_memory = True)
 
     def train(self, load_state = False, num_epochs = 1000):
         if load_state:
@@ -120,6 +120,8 @@ class Model():
                 source_mcep_batch = source_mcep_batch.to(self.device)
                 target_mcep_batch = target_mcep_batch.to(self.device)
 
+                #  GENERATOR
+
                 # Forward-inverse mapping: x -> y -> x'
                 fake_y = self.generator_xy(source_mcep_batch)
                 cycle_x = self.generator_yx(fake_y)
@@ -147,13 +149,14 @@ class Model():
                 # Cycle and identity consistency losses
                 cycle_loss = self.criterion_cycle(source_mcep_batch, cycle_x) + self.criterion_cycle(target_mcep_batch, cycle_y)
                 identity_loss = self.criterion_identity(source_mcep_batch, identity_x) + self.criterion_identity(target_mcep_batch, identity_y)
-
                 generator_loss = generator_loss_xy + generator_loss_yx + generator_loss_cycle_x + generator_loss_cycle_y + cycle_loss_lambda * cycle_loss + identity_loss_lambda * identity_loss
 
                 self.resetGrad()
                 generator_loss.backward()
                 self.g_optimizer_xy.step()
                 self.g_optimizer_yx.step()
+
+                # DISCRIMINATOR
 
                 # Discriminator losses for source and target domains
                 d_real_x = self.discriminator_x(source_mcep_batch)
@@ -163,19 +166,19 @@ class Model():
                 generated_x = self.generator_yx(target_mcep_batch).detach()
                 generated_y = self.generator_xy(source_mcep_batch).detach()
 
-                # Discriminator loss for X
+                # Discriminator loss for x
                 d_fake_x = self.discriminator_x(generated_x)
                 d_loss_x_real = self.criterion_adv(d_real_x, torch.ones_like(d_real_x))
                 d_loss_x_fake = self.criterion_adv(d_fake_x, torch.zeros_like(d_fake_x))
-                d_loss_x = (d_loss_x_real + d_loss_x_fake) / 2.0
+                d_loss_x = d_loss_x_real + d_loss_x_fake
 
-                # Discriminator loss for Y
+                # Discriminator loss for y
                 d_fake_y = self.discriminator_y(generated_y)
                 d_loss_y_real = self.criterion_adv(d_real_y, torch.ones_like(d_real_y))
                 d_loss_y_fake = self.criterion_adv(d_fake_y, torch.zeros_like(d_fake_y))
-                d_loss_y = (d_loss_y_real + d_loss_y_fake) / 2.0
+                d_loss_y = d_loss_y_real + d_loss_y_fake
 
-                d_loss = (d_loss_x + d_loss_y) / 2.0
+                d_loss = d_loss_x + d_loss_y
 
                 self.resetGrad()
                 d_loss.backward()
@@ -186,7 +189,7 @@ class Model():
                       f"D Loss: {d_loss.item():.4f}, G Loss: {generator_loss.item():.4f}, "
                       f"Cycle Loss: {cycle_loss.item():.4f}")
 
-            if (epoch + 1) % 50 == 0:
+            if (epoch + 1) % 20 == 0:
                 self.saveModel(epoch + 1)
 
             # avg_eval_loss_xy, avg_eval_loss_yx, avg_cycle_loss, avg_adv_loss = self.evaluate()
@@ -295,9 +298,11 @@ class Model():
                     fake_mcep_chunk = self.train_dataset.denormalizeMcep(fake_mcep_chunk, False)
                 fake_mcep_chunks.append(fake_mcep_chunk)
         fake_mcep = np.concatenate(fake_mcep_chunks, axis=1)
-        fake_mcep = fake_mcep.T
+        fake_mcep = fake_mcep.T.astype(np.float64)
         mcep_zoom_factor = (tf / fake_mcep.shape[0], 1)
-        fake_mcep = zoom(fake_mcep, mcep_zoom_factor, order=1).astype(np.float64)
+        fake_mcep = zoom(fake_mcep, mcep_zoom_factor, order=1)
+
+        # maybe lost in prcess, when not enough for 128 frams
         synthesized_wav = u.reassembleWav(f0_converted, fake_mcep, ap, 22050, 5)
         u.saveWav(synthesized_wav, "out_synthesized.wav", 22050)
 
