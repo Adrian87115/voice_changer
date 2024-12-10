@@ -4,10 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d61baad7-532c-4034-bbcf-9d66fb232ffc" name="Changes" comment="before adjusting the network and the training process">
+    <list default="true" id="d61baad7-532c-4034-bbcf-9d66fb232ffc" name="Changes" comment="before changing the adversarial loss">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/audio_dataset.py" beforeDir="false" afterPath="$PROJECT_DIR$/audio_dataset.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/discriminator.py" beforeDir="false" afterPath="$PROJECT_DIR$/discriminator.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/generator.py" beforeDir="false" afterPath="$PROJECT_DIR$/generator.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/model.py" beforeDir="false" afterPath="$PROJECT_DIR$/model.py" afterDir="false" />
     </list>
@@ -192,7 +192,18 @@
       <workItem from="1733344673838" duration="2232000" />
       <workItem from="1733399598237" duration="1331000" />
       <workItem from="1733416701590" duration="4751000" />
-      <workItem from="1733427016154" duration="167000" />
+      <workItem from="1733427016154" duration="2613000" />
+      <workItem from="1733516921134" duration="2793000" />
+      <workItem from="1733569516566" duration="1660000" />
+      <workItem from="1733581471272" duration="248000" />
+      <workItem from="1733644265644" duration="11866000" />
+      <workItem from="1733668685868" duration="1666000" />
+      <workItem from="1733682965453" duration="3529000" />
+      <workItem from="1733725734852" duration="827000" />
+      <workItem from="1733777952037" duration="4325000" />
+      <workItem from="1733818980998" duration="2362000" />
+      <workItem from="1733826343901" duration="752000" />
+      <workItem from="1733836285017" duration="88000" />
     </task>
     <task id="LOCAL-00001" summary="some improvements, still no signifficant results, before trying to reproduce from simpler previous model training version">
       <option name="closed" value="true" />
@@ -298,7 +309,15 @@
       <option name="project" value="LOCAL" />
       <updated>1732480294544</updated>
     </task>
-    <option name="localTasksCounter" value="14" />
+    <task id="LOCAL-00014" summary="before changing the adversarial loss">
+      <option name="closed" value="true" />
+      <created>1733427220779</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1733427220779</updated>
+    </task>
+    <option name="localTasksCounter" value="15" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -318,11 +337,12 @@
     <MESSAGE value="minor improvements, before adding data normalization" />
     <MESSAGE value="normalization added" />
     <MESSAGE value="before adjusting the network and the training process" />
-    <option name="LAST_COMMIT_MESSAGE" value="before adjusting the network and the training process" />
+    <MESSAGE value="before changing the adversarial loss" />
+    <option name="LAST_COMMIT_MESSAGE" value="before changing the adversarial loss" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/voice_changer$model.coverage" NAME="model Coverage Results" MODIFIED="1731621677255" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/voice_changer$utils.coverage" NAME="utils Coverage Results" MODIFIED="1732058766152" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/voice_changer$main.coverage" NAME="main Coverage Results" MODIFIED="1733422006153" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
+    <SUITE FILE_PATH="coverage/voice_changer$main.coverage" NAME="main Coverage Results" MODIFIED="1733827163998" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="" />
   </component>
 </project>

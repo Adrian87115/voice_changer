@@ -176,10 +176,18 @@ class PitchDataset(Dataset):
             self.target_log_f0_contours.append(log_f0)
             self.target_time_frames.append(time_frames)
 
-    def pitchConversion(self, log_f0):
-        source_mean_log_f0 = np.mean(self.source_mean_log_f0)
-        source_std_log_f0 = np.mean(self.source_std_log_f0)
-        target_mean_log_f0 = np.mean(self.target_mean_log_f0)
-        target_std_log_f0 = np.mean(self.target_std_log_f0)
-        f0_converted = np.exp((log_f0 - source_mean_log_f0) / source_std_log_f0 * target_std_log_f0 + target_mean_log_f0)
+    def pitchConversion(self, log_f0, source):
+        if source:
+            source_mean_log_f0 = np.mean(self.source_mean_log_f0)
+            source_std_log_f0 = np.mean(self.source_std_log_f0)
+            target_mean_log_f0 = np.mean(self.target_mean_log_f0)
+            target_std_log_f0 = np.mean(self.target_std_log_f0)
+            f0_converted = np.exp((log_f0 - source_mean_log_f0) / source_std_log_f0 * target_std_log_f0 + target_mean_log_f0)
+        else:
+            target_mean_log_f0 = np.mean(self.target_mean_log_f0)
+            target_std_log_f0 = np.mean(self.target_std_log_f0)
+            source_mean_log_f0 = np.mean(self.source_mean_log_f0)
+            source_std_log_f0 = np.mean(self.source_std_log_f0)
+            f0_converted = np.exp((log_f0 - target_mean_log_f0) / target_std_log_f0 * source_std_log_f0 + source_mean_log_f0)
+
         return f0_converted
