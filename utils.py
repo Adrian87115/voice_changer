@@ -19,18 +19,18 @@ class MCEPDataset(Dataset):
     def __getitem__(self, idx):
         return self.mcep_data[idx], self.label_id
 
-def scaleDown(mcep, target_size = 128):
-    original_size = mcep.shape[1]
-    scale_factor = target_size / original_size
-    mcep_scaled_down = zoom(mcep, (1, scale_factor), order=1)
-    return mcep_scaled_down
+def calculateMcd(source, target):
+    diff = source - target
+    squared_diff = diff ** 2
+    sum_squared_diff = torch.sum(squared_diff, dim=-1)
+    mcd = torch.mean(torch.sqrt(sum_squared_diff)) * (10 / torch.log(torch.tensor(10.0)))
+    return mcd.item()
 
-def scaleUp(mcep, original_size = 512):
-    target_size = original_size
-    current_size = mcep.shape[1]
-    scale_factor = target_size / current_size
-    mcep_scaled_up = zoom(mcep, (1, scale_factor), order=1)
-    return mcep_scaled_up
+def calculateMsd(source, target):
+    diff = source - target
+    squared_diff = diff ** 2
+    msd = torch.mean(torch.sqrt(torch.sum(squared_diff, dim=-1)))
+    return msd.item()
 
 def pitchShiftWavFileTest(pitch_dataset, wav_file_path, output_wav_path):
     y, sr = librosa.load(wav_file_path, sr=None)

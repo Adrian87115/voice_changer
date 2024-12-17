@@ -23,20 +23,19 @@ target_labels = ["VCC2TF1",
                  "VCC2TM2"]
 
 class AudioDataset(Dataset):
-    def __init__(self, root_dir, source, target):
+    def __init__(self, root_dir, source, target, source_mean_g = None, source_std_g = None, target_mean_g = None, target_std_g = None):
         self.root_dir = root_dir
         self.file_list = None
         self.labels = []
         self.source_mcep = []
         self.source_time_frames = []
-        self.source_mean = None
-        self.source_std = None
         self.target_mcep = []
         self.target_time_frames = []
-        self.target_mean = None
-        self.target_std = None
+        self.source_mean = source_mean_g
+        self.source_std = source_std_g
+        self.target_mean = target_mean_g
+        self.target_std = target_std_g
         self.getData(source, target)
-        self.normalize()
 
     def getFileListAndSpeakers(self, source, target):
         file_list = []
@@ -65,19 +64,21 @@ class AudioDataset(Dataset):
             elif speaker_id == target:
                 self.target_mcep.append(mcep)
                 self.target_time_frames.append(time_frames)
+        self.normalize()
 
     def normalize(self):
         merged_source_mcep = np.concatenate(self.source_mcep, axis=0)
-        self.source_mean = np.mean(merged_source_mcep)
-        self.source_std = np.std(merged_source_mcep)
+        if self.source_mean is None:
+            self.source_mean = np.mean(merged_source_mcep)
+            self.source_std = np.std(merged_source_mcep)
         for i in range(len(self.source_mcep)):
             self.source_mcep[i] = (self.source_mcep[i] - self.source_mean) / (self.source_std + 1e-8)
         merged_target_mcep = np.concatenate(self.target_mcep, axis=0)
-        self.target_mean = np.mean(merged_target_mcep)
-        self.target_std = np.std(merged_target_mcep)
+        if self.target_mean is None:
+            self.target_mean = np.mean(merged_target_mcep)
+            self.target_std = np.std(merged_target_mcep)
         for i in range(len(self.target_mcep)):
             self.target_mcep[i] = (self.target_mcep[i] - self.target_mean) / (self.target_std + 1e-8)
-
     def getSourceNorm(self, source = True):
         if source:
             return self.source_mean, self.source_std
@@ -176,18 +177,14 @@ class PitchDataset(Dataset):
             self.target_log_f0_contours.append(log_f0)
             self.target_time_frames.append(time_frames)
 
-    def pitchConversion(self, log_f0, source):
-        if source:
-            source_mean_log_f0 = np.mean(self.source_mean_log_f0)
-            source_std_log_f0 = np.mean(self.source_std_log_f0)
-            target_mean_log_f0 = np.mean(self.target_mean_log_f0)
-            target_std_log_f0 = np.mean(self.target_std_log_f0)
-            f0_converted = np.exp((log_f0 - source_mean_log_f0) / source_std_log_f0 * target_std_log_f0 + target_mean_log_f0)
-        else:
-            target_mean_log_f0 = np.mean(self.target_mean_log_f0)
-            target_std_log_f0 = np.mean(self.target_std_log_f0)
-            source_mean_log_f0 = np.mean(self.source_mean_log_f0)
-            source_std_log_f0 = np.mean(self.source_std_log_f0)
-            f0_converted = np.exp((log_f0 - target_mean_log_f0) / target_std_log_f0 * source_std_log_f0 + source_mean_log_f0)
+    def logf0Statistics(self, log_f0s):
+        log_f0s_concatenated = np.concatenate(log_f0s)
+        log_f0s_mean = log_f0s_concatenated.mean()
+        log_f0s_std = log_f0s_concatenated.std()
+        return log_f0s_mean, log_f0s_std
 
+    def pitchConversion(self, log_f0):
+        source_mean_log_f0, source_std_log_f0 = self.logf0Statistics(self.source_log_f0_contours)
+        target_mean_log_f0, target_std_log_f0 = self.logf0Statistics(self.target_log_f0_contours)
+        f0_converted = np.exp((log_f0 - source_mean_log_f0) / source_std_log_f0 * target_std_log_f0 + target_mean_log_f0)
         return f0_converted
