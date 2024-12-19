@@ -182,7 +182,7 @@ class Model():
                       f"Cycle Loss: {cycle_loss.item():.4f}, "
                       f"Identity Loss: {identity_loss.item():.4f}")
 
-            if (epoch + 1) % 20 == 0:
+            if (epoch + 1) % 50 == 0:
                 self.saveModel(epoch + 1)
 
             # self.evaluate()
@@ -355,8 +355,8 @@ class Model():
 
         fake_mcep = np.concatenate(fake_mcep_chunks, axis=1)
         fake_mcep = np.ascontiguousarray(fake_mcep.T.astype(np.float64))
-        # synthesized_wav = u.reassembleWav(np.exp(log_f0), self.eval_dataset.denormalizeMcep(mcep.T, True), ap, 22050, 5)
-        synthesized_wav = u.reassembleWav(f0_converted, fake_mcep, ap, 22050, 5)
+        synthesized_wav = u.reassembleWav(f0_converted, self.eval_dataset.denormalizeMcep(mcep.T, True), ap, 22050, 5)
+        # synthesized_wav = u.reassembleWav(f0_converted, fake_mcep, ap, 22050, 5)
         u.saveWav(synthesized_wav, "out_synthesized.wav", 22050)
 
         plt.plot(f0_converted)
