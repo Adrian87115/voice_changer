@@ -32,44 +32,6 @@ def calculateMsd(source, target):
     msd = torch.mean(torch.sqrt(torch.sum(squared_diff, dim=-1)))
     return msd.item()
 
-def pitchShiftWavFileTest(pitch_dataset, wav_file_path, output_wav_path):
-    y, sr = librosa.load(wav_file_path, sr=None)
-    f0, sp, ap = pyworld.wav2world(y.astype(np.float64), sr)
-    log_f0 = np.log(f0 + 1e-5)
-    exp_f0 = np.exp(log_f0)
-    f0_converted = pitch_dataset.pitchConversion(log_f0)
-    plt.subplot(2, 2, 1)
-    plt.plot(f0, label='F0')
-    plt.title('F0')
-    plt.xlabel('Time Frames')
-    plt.ylabel('F0')
-    plt.legend()
-
-    plt.subplot(2, 2, 2)
-    plt.plot(log_f0, label='log_f0')
-    plt.title('log_f0')
-    plt.xlabel('Time Frames')
-    plt.ylabel('log_f0')
-    plt.legend()
-
-    plt.subplot(2, 2, 3)
-    plt.plot(exp_f0, label='exp_f0')
-    plt.title('exp_f0')
-    plt.xlabel('Time Frames')
-    plt.ylabel('exp_f0')
-    plt.legend()
-
-    plt.subplot(2, 2, 4)
-    plt.plot(f0_converted, label='Converted F0 (log)')
-    plt.title('Converted Log F0')
-    plt.xlabel('Time Frames')
-    plt.ylabel('Converted Log F0')
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
-    file = pyworld.synthesize(f0_converted, sp, ap, 22050, 5.0)
-    sf.write(output_wav_path, file, sr)
-
 def loadWav(wav_file, sr):
     wav, _ = librosa.load(wav_file, sr = sr, mono = True)
     return wav
@@ -123,15 +85,8 @@ def batchProcessAudio(input_dir):
 def processAudio(input_filename, output_filename):
     fs = 22050
     f0, mcep, ap, fs, frame_period = decomposeWav(input_filename, fs)
-    log_f0 = np.log(f0 + 1e-5)
-    log_f0[np.isneginf(log_f0)] = np.nan
-    mean_log_f0 = np.nanmean(log_f0)
-    std_log_f0 = np.nanstd(log_f0)
-    norm_log_f0 = (log_f0 - mean_log_f0) / std_log_f0
     tf = mcep.shape[0]
-    np.savez(output_filename, log_f0 = log_f0, norm_log_f0 = norm_log_f0, mean_log_f0 = mean_log_f0, std_log_f0 = std_log_f0, mcep = mcep, source_parameter = ap, time_frames = tf)
-
-# processWav("C:/Users/adria/Desktop/test/audio/VCC2SF1/10001.wav", "C:/Users/adria/Desktop/test/audio/VCC2SF1/output.wav", fs = 22050, frame_period = 5.0, mcep_dim = 35)
+    np.savez(output_filename, f0 = f0, mcep = mcep, source_parameter = ap, time_frames = tf)
 
 # batchProcessAudio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/training_data/audio")
 # batchProcessAudio("C:/Users/adria/Desktop/Adrian/projects/PyCharm/voice_changer/evaluation_data/audio")

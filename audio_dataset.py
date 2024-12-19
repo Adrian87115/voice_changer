@@ -79,6 +79,7 @@ class AudioDataset(Dataset):
             self.target_std = np.std(merged_target_mcep)
         for i in range(len(self.target_mcep)):
             self.target_mcep[i] = (self.target_mcep[i] - self.target_mean) / (self.target_std + 1e-8)
+
     def getSourceNorm(self, source = True):
         if source:
             return self.source_mean, self.source_std
@@ -117,16 +118,10 @@ class PitchDataset(Dataset):
         self.root_dir = root_dir
         self.source_file_list = None
         self.target_file_list = None
-        self.source_norm_log_f0 = []
-        self.source_mean_log_f0 = []
-        self.source_std_log_f0 = []
+        self.source_f0 = []
         self.source_time_frames = []
-        self.source_log_f0_contours = []
-        self.target_norm_log_f0 = []
-        self.target_mean_log_f0 = []
-        self.target_std_log_f0 = []
+        self.target_f0 = []
         self.target_time_frames = []
-        self.target_log_f0_contours = []
         self.getData(source, target)
 
     def getFileListAndSpeakers(self, source, target):
@@ -152,39 +147,27 @@ class PitchDataset(Dataset):
 
     def getData(self, source, target):
         self.getFileListAndSpeakers(source, target)
-        for idx, file in enumerate(self.source_file_list):
+        for file in self.source_file_list:
             data = np.load(file)
-            norm_log_f0 = data['norm_log_f0']
-            mean_log_f0 = data['mean_log_f0']
-            std_log_f0 = data['std_log_f0']
-            log_f0 = data['log_f0']
+            f0 = data['f0']
             time_frames = data['time_frames']
-            self.source_norm_log_f0.append(norm_log_f0)
-            self.source_mean_log_f0.append(mean_log_f0)
-            self.source_std_log_f0.append(std_log_f0)
-            self.source_log_f0_contours.append(log_f0)
+            self.source_f0.append(f0)
             self.source_time_frames.append(time_frames)
-        for idx, file in enumerate(self.target_file_list):
+        for file in self.target_file_list:
             data = np.load(file)
-            norm_log_f0 = data['norm_log_f0']
-            mean_log_f0 = data['mean_log_f0']
-            std_log_f0 = data['std_log_f0']
-            log_f0 = data['log_f0']
+            f0 = data['f0']
             time_frames = data['time_frames']
-            self.target_norm_log_f0.append(norm_log_f0)
-            self.target_mean_log_f0.append(mean_log_f0)
-            self.target_std_log_f0.append(std_log_f0)
-            self.target_log_f0_contours.append(log_f0)
+            self.target_f0.append(f0)
             self.target_time_frames.append(time_frames)
 
-    def logf0Statistics(self, log_f0s):
-        log_f0s_concatenated = np.concatenate(log_f0s)
+    def logf0Statistics(self, f0s):
+        log_f0s_concatenated = np.ma.log(np.concatenate(f0s))
         log_f0s_mean = log_f0s_concatenated.mean()
         log_f0s_std = log_f0s_concatenated.std()
         return log_f0s_mean, log_f0s_std
 
     def pitchConversion(self, log_f0):
-        source_mean_log_f0, source_std_log_f0 = self.logf0Statistics(self.source_log_f0_contours)
-        target_mean_log_f0, target_std_log_f0 = self.logf0Statistics(self.target_log_f0_contours)
+        source_mean_log_f0, source_std_log_f0 = self.logf0Statistics(self.source_f0)
+        target_mean_log_f0, target_std_log_f0 = self.logf0Statistics(self.target_f0)
         f0_converted = np.exp((log_f0 - source_mean_log_f0) / source_std_log_f0 * target_std_log_f0 + target_mean_log_f0)
         return f0_converted

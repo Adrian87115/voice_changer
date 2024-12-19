@@ -5,7 +5,7 @@ def main():
     # model.train(load_state = True)
     # model.evaluate()
     model.voiceToTarget("VCC2SF1", "VCC2SF2", "evaluation_data/transformed_audio/VCC2SF1/30004.npz")
-    model.voiceToTarget("VCC2SF2", "VCC2SF1", "evaluation_data/transformed_audio/VCC2SF2/30004.npz")
+    # model.voiceToTarget("VCC2SF2", "VCC2SF1", "evaluation_data/transformed_audio/VCC2SF2/30004.npz")
 
     # model = m.Model("VCC2SM2", "VCC2SF1")
     # model.train(load_state = False)

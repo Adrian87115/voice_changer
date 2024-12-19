@@ -299,7 +299,7 @@ class Model():
         self.discriminator_x.eval()
         self.discriminator_y.eval()
         data = np.load(path_to_source_data)
-        log_f0 = data['log_f0']
+        log_f0 = np.log(data['f0'])
         mcep = data['mcep'].T
         if source == self.source:
             mcep = self.eval_dataset.normalizeMcep(mcep, True)
