@@ -17,7 +17,8 @@ import librosa
 import soundfile as sf
 torch.autograd.set_detect_anomaly(True)
 warnings.filterwarnings("ignore")
-
+# additional discriminators have to be introduced
+# maybe problem with adversarial cost function
 class CustomLoss(nn.Module):
     def __init__(self):
         super(CustomLoss, self).__init__()
@@ -36,11 +37,13 @@ class Model():
         self.generator_yx = g.Generator().to(self.device)
         self.discriminator_x = d.Discriminator().to(self.device)
         self.discriminator_y = d.Discriminator().to(self.device)
+        # self.discriminator_x2 = d.Discriminator().to(self.device)
+        # self.discriminator_y2 = d.Discriminator().to(self.device)
         self.g_optimizer_xy = optim.Adam(self.generator_xy.parameters(), lr = 0.0002, betas = (0.5, 0.999))
         self.g_optimizer_yx = optim.Adam(self.generator_yx.parameters(), lr = 0.0002, betas = (0.5, 0.999))
         self.d_optimizer_x = optim.Adam(self.discriminator_x.parameters(), lr = 0.0001, betas = (0.5, 0.999))
         self.d_optimizer_y = optim.Adam(self.discriminator_y.parameters(), lr = 0.0001, betas = (0.5, 0.999))
-        self.criterion_adv = CustomLoss().to(self.device)
+        self.criterion_adv = nn.MSELoss().to(self.device)
         self.criterion_cycle = nn.L1Loss().to(self.device)
         self.criterion_identity = nn.L1Loss().to(self.device)
         self.g_scheduler_xy = StepLR(self.g_optimizer_xy, step_size = 100000, gamma = 0.1)
@@ -58,6 +61,8 @@ class Model():
             'generator_yx_state_dict': self.generator_yx.state_dict(),
             'discriminator_x_state_dict': self.discriminator_x.state_dict(),
             'discriminator_y_state_dict': self.discriminator_y.state_dict(),
+            # 'discriminator_x2_state_dict': self.discriminator_x2.state_dict(),
+            # 'discriminator_y2_state_dict': self.discriminator_y2.state_dict(),
             'g_optimizer_xy_state_dict': self.g_optimizer_xy.state_dict(),
             'g_optimizer_yx_state_dict': self.g_optimizer_yx.state_dict(),
             'd_optimizer_x_state_dict': self.d_optimizer_x.state_dict(),
@@ -65,12 +70,14 @@ class Model():
             'iteration': self.iteration}, file_path)
 
     def loadModel(self):
-        file_path = "model2_410.pth"
+        file_path = "saved_model_epoch_20.pth"
         checkpoint = torch.load(file_path)
         self.generator_xy.load_state_dict(checkpoint['generator_xy_state_dict'])
         self.generator_yx.load_state_dict(checkpoint['generator_yx_state_dict'])
         self.discriminator_x.load_state_dict(checkpoint['discriminator_x_state_dict'])
         self.discriminator_y.load_state_dict(checkpoint['discriminator_y_state_dict'])
+        # self.discriminator_x2.load_state_dict(checkpoint['discriminator_x2_state_dict'])
+        # self.discriminator_y2.load_state_dict(checkpoint['discriminator_y2_state_dict'])
         self.g_optimizer_xy.load_state_dict(checkpoint['g_optimizer_xy_state_dict'])
         self.g_optimizer_yx.load_state_dict(checkpoint['g_optimizer_yx_state_dict'])
         self.d_optimizer_x.load_state_dict(checkpoint['d_optimizer_x_state_dict'])
@@ -134,41 +141,40 @@ class Model():
 
                 source_mcep_batch = source_mcep_batch.to(self.device)
                 target_mcep_batch = target_mcep_batch.to(self.device)
-                d_source_mcep_batch = self.discriminator_x(source_mcep_batch)
-                d_target_mcep_batch = self.discriminator_y(target_mcep_batch)
-
-                # Forward-inverse mapping: x -> y -> x'
-                fake_y = self.generator_xy(source_mcep_batch)
-                cycle_x = self.generator_yx(fake_y)
-
-                # Inverse-forward mapping: y -> x -> y'
-                fake_x = self.generator_yx(target_mcep_batch)
-                cycle_y = self.generator_xy(fake_x)
 
                 # Identity mapping: x -> x', y -> y'
                 identity_x = self.generator_yx(source_mcep_batch)
                 identity_y = self.generator_xy(target_mcep_batch)
 
+                identity_mapping_loss = identity_loss_lambda * (self.criterion_identity(identity_x, source_mcep_batch) + self.criterion_identity(identity_y, target_mcep_batch))
+
+                # Forward-inverse mapping: x -> y -> x', Inverse-forward mapping: y -> x -> y'
+                fake_y = self.generator_xy(source_mcep_batch)
+                cycle_x = self.generator_yx(fake_y)
+                fake_x = self.generator_yx(target_mcep_batch)
+                cycle_y = self.generator_xy(fake_x)
+
+                cycle_consistency_loss = cycle_loss_lambda * (self.criterion_cycle(cycle_x, source_mcep_batch) + self.criterion_cycle(cycle_y, target_mcep_batch))
+
                 # Adversarial loss for direct mappings (first step)
                 d_fake_x = self.discriminator_x(fake_x)
                 d_fake_y = self.discriminator_y(fake_y)
-                d_generator_loss_xy = self.criterion_adv(d_target_mcep_batch, d_fake_y)
-                d_generator_loss_yx = self.criterion_adv(d_source_mcep_batch, d_fake_x)
+                d_real_x = self.discriminator_x(source_mcep_batch)
+                d_real_y = self.discriminator_y(target_mcep_batch)
+                d_adv1_xy = self.criterion_adv(d_fake_y, d_real_y)
+                d_adv1_yx = self.criterion_adv(d_fake_x, d_real_x)
+
+                first_adversarial_loss = d_adv1_xy + d_adv1_yx
 
                 # Adversarial loss for cycle-consistent mappings (second step)
                 d_cycle_x = self.discriminator_x(cycle_x)
                 d_cycle_y = self.discriminator_y(cycle_y)
-                d_generator_loss_cycle_x = self.criterion_adv(d_source_mcep_batch, d_cycle_x)
-                d_generator_loss_cycle_y = self.criterion_adv(d_target_mcep_batch, d_cycle_y)
+                d_adv2_xy = self.criterion_adv(d_cycle_x, d_real_x)
+                d_adv2_yx = self.criterion_adv(d_cycle_y, d_real_y)
 
-                # Cycle and identity consistency losses
-                cycle_loss = self.criterion_cycle(source_mcep_batch, cycle_x) + self.criterion_cycle(target_mcep_batch, cycle_y)
-                identity_loss = self.criterion_identity(source_mcep_batch, identity_x) + self.criterion_identity(target_mcep_batch, identity_y)
-                generator_loss = cycle_loss_lambda * cycle_loss + identity_loss_lambda * identity_loss
+                second_adversarial_loss = d_adv2_xy + d_adv2_yx
 
-                discriminator_loss = d_generator_loss_xy + d_generator_loss_yx + d_generator_loss_cycle_x + d_generator_loss_cycle_y
-
-                total_loss = generator_loss + discriminator_loss
+                total_loss = cycle_consistency_loss + identity_mapping_loss + first_adversarial_loss + second_adversarial_loss
 
                 self.resetGrad()
                 total_loss.backward()
@@ -178,11 +184,11 @@ class Model():
                 self.d_optimizer_y.step()
 
                 print(f"Epoch [{epoch + 1}/{num_epochs}] Batch {i + 1}/{len(self.source_loader)}: "
-                      f"D Loss: {discriminator_loss.item():.4f}, G Loss: {generator_loss.item():.4f}, "
-                      f"Cycle Loss: {cycle_loss.item():.4f}, "
-                      f"Identity Loss: {identity_loss.item():.4f}")
+                      f"Adv1 Loss: {first_adversarial_loss.item():.4f}, Adv2 Loss: {second_adversarial_loss.item():.4f}, "
+                      f"Cycle Loss: {cycle_consistency_loss.item():.4f}, "
+                      f"Identity Loss: {identity_mapping_loss.item():.4f}")
 
-            if (epoch + 1) % 50 == 0:
+            if (epoch + 1) % 20 == 0:
                 self.saveModel(epoch + 1)
 
             # self.evaluate()
@@ -355,23 +361,23 @@ class Model():
 
         fake_mcep = np.concatenate(fake_mcep_chunks, axis=1)
         fake_mcep = np.ascontiguousarray(fake_mcep.T.astype(np.float64))
-        synthesized_wav = u.reassembleWav(f0_converted, self.eval_dataset.denormalizeMcep(mcep.T, True), ap, 22050, 5)
-        # synthesized_wav = u.reassembleWav(f0_converted, fake_mcep, ap, 22050, 5)
+        # synthesized_wav = u.reassembleWav(f0_converted, self.eval_dataset.denormalizeMcep(mcep.T, True), ap, 22050, 5)
+        synthesized_wav = u.reassembleWav(f0_converted, fake_mcep, ap, 22050, 5)
         u.saveWav(synthesized_wav, "out_synthesized.wav", 22050)
 
-        plt.plot(f0_converted)
-        plt.title('Pitch Contour (f0)')
-        plt.xlabel('Time Frames')
-        plt.ylabel('Pitch (Hz)')
-        plt.grid(True)
-        plt.show()
-
-        plt.plot(np.exp(log_f0))
-        plt.title('Pitch Contour (f0)')
-        plt.xlabel('Time Frames')
-        plt.ylabel('Pitch (Hz)')
-        plt.grid(True)
-        plt.show()
+        # plt.plot(f0_converted)
+        # plt.title('Pitch Contour (f0)')
+        # plt.xlabel('Time Frames')
+        # plt.ylabel('Pitch (Hz)')
+        # plt.grid(True)
+        # plt.show()
+        #
+        # plt.plot(np.exp(log_f0))
+        # plt.title('Pitch Contour (f0)')
+        # plt.xlabel('Time Frames')
+        # plt.ylabel('Pitch (Hz)')
+        # plt.grid(True)
+        # plt.show()
 
         plt.imshow(fake_mcep.T, aspect = 'auto', origin = 'lower', cmap = 'viridis', interpolation = 'none')
         plt.colorbar()

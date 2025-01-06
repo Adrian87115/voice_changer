@@ -42,7 +42,6 @@ class Discriminator(nn.Module):
                                kernel_size = (1, 3),
                                stride = (1, 1),
                                padding = (0, 1))
-        self.sigmoid = nn.Sigmoid()
 
     @staticmethod
     def _block(in_channels, out_channels, kernel_size, stride, padding):
@@ -65,5 +64,4 @@ class Discriminator(nn.Module):
         down3 = self.down3(down2)
         down4 = self.down4(down3)
         conv2 = self.conv2(down4)
-        sigmoid = self.sigmoid(conv2)
-        return sigmoid
+        return conv2
