@@ -2,13 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as f
 
-class GLU(nn.Module):#maybe something wrong with glu
-    def __init__(self):
-        super(GLU, self).__init__()
-
-    def forward(self, input1):
-        return input1 * torch.sigmoid(input1)
-
 class ResidualLayer(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride, padding):
         super(ResidualLayer, self).__init__()
@@ -18,8 +11,8 @@ class ResidualLayer(nn.Module):
                                                      stride = stride,
                                                      padding = padding),
                                            nn.InstanceNorm1d(num_features = out_channels, affine = True),
-                                           GLU(),
-                                           nn.Conv1d(in_channels = out_channels,
+                                           nn.GLU(dim = 1),
+                                           nn.Conv1d(in_channels = out_channels // 2,
                                                      out_channels = in_channels,
                                                      kernel_size = kernel_size,
                                                      stride = stride,
@@ -36,19 +29,19 @@ class Generator(nn.Module):
         self.conv1 = nn.Conv2d(in_channels = 1,
                                out_channels = 128,
                                kernel_size = (5, 15),
-                               stride = 1,
+                               stride = (1, 1),
                                padding = (2, 7))
-        self.glu = GLU()
-        self.down1 = self._down_block(in_channels = 128,
+        self.glu = nn.GLU(dim = 1)
+        self.down1 = self._down_block(in_channels = 128 // 2,
                                       out_channels = 256,
                                       kernel_size = 5,
-                                      stride = 2,
-                                      padding = 2)
-        self.down2 = self._down_block(in_channels = 256,
+                                      stride = (2, 2),
+                                      padding = (2, 2))
+        self.down2 = self._down_block(in_channels = 256 // 2,
                                       out_channels = 512,
-                                      kernel_size = 5,
-                                      stride = 2,
-                                      padding = 2)
+                                      kernel_size = (5, 5),
+                                      stride = (2, 2),
+                                      padding = (2, 2))
         self.conv2 = nn.Sequential(nn.Conv1d(in_channels = 2304,
                                              out_channels = 256,
                                              kernel_size = 1,
@@ -92,17 +85,17 @@ class Generator(nn.Module):
                                    nn.InstanceNorm1d(num_features = 2304, affine = True))
         self.up1 = self._up_block(in_channels = 512,
                                   out_channels = 1024,
-                                  kernel_size = 5,
+                                  kernel_size = (5, 5),
                                   stride = (3, 1),
-                                  padding = 2)
-        self.up2 = self._up_block(in_channels = 256,
+                                  padding = (2, 2))
+        self.up2 = self._up_block(in_channels = 256 // 2,
                                   out_channels = 512,
-                                  kernel_size = 5,
+                                  kernel_size = (5, 5),
                                   stride = (3, 1),
-                                  padding = 2)
-        self.conv4 = nn.Conv2d(in_channels = 128,
+                                  padding = (2, 2))
+        self.conv4 = nn.Conv2d(in_channels = 128 // 2,
                                out_channels = 35,
-                               kernel_size = (6, 15),
+                               kernel_size = (5, 15),
                                stride = (3, 1),
                                padding = (2, 7))
 
@@ -114,7 +107,7 @@ class Generator(nn.Module):
                                        stride = stride,
                                        padding = padding),
                              nn.InstanceNorm2d(num_features = out_channels, affine = True),
-                             GLU())
+                             nn.GLU(dim = 1))
 
     @staticmethod
     def _up_block(in_channels, out_channels, kernel_size, stride, padding):
@@ -125,7 +118,7 @@ class Generator(nn.Module):
                                        padding = padding),
                              nn.PixelShuffle(upscale_factor = 2),
                              nn.InstanceNorm2d(num_features = out_channels // 4, affine = True),
-                             GLU())
+                             nn.GLU(dim = 1))
 
     def forward(self, x):
         if len(x.shape) == 3:
@@ -143,9 +136,9 @@ class Generator(nn.Module):
         residual5 = self.residual5(residual4)
         residual6 = self.residual6(residual5)
         residual6 = self.conv3(residual6)
-        residual6 = residual6.view([down2.shape[0], 512, down2.shape[2], -1])
+        residual6 = residual6.view([x.shape[0], 512, 9, -1])
         up1 = self.up1(residual6)
         up2 = self.up2(up1)
-        output = self.conv4(up2)
-        output = output.view([x.shape[0], 1, 35, 128]).squeeze(1)
+        conv4 = self.conv4(up2)
+        output = conv4.view([x.shape[0], 1, 35, -1]).squeeze(1)
         return output

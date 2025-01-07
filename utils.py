@@ -3,7 +3,6 @@ import pyworld
 import numpy as np
 import soundfile as sf
 import os
-from scipy.ndimage import zoom
 from torch.utils.data import Dataset
 import torch
 import matplotlib.pyplot as plt
