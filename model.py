@@ -61,7 +61,7 @@ class Model():
             'iteration': self.iteration}, file_path)
 
     def loadModel(self):
-        file_path = "F1_M2_420.pth"
+        file_path = "saved_model_epoch_20.pth"
         checkpoint = torch.load(file_path)
         self.generator_xy.load_state_dict(checkpoint['generator_xy_state_dict'])
         self.generator_yx.load_state_dict(checkpoint['generator_yx_state_dict'])
@@ -154,8 +154,6 @@ class Model():
                 # Adversarial loss for direct mappings (first step)
                 d_fake_x = self.discriminator_x(fake_x)
                 d_fake_y = self.discriminator_y(fake_y)
-                d_real_x = self.discriminator_x(source_mcep_batch)
-                d_real_y = self.discriminator_y(target_mcep_batch)
                 d_adv1_xy = self.criterion_adv(d_fake_y, torch.ones(d_fake_y.shape).to(self.device))
                 d_adv1_yx = self.criterion_adv(d_fake_x, torch.ones(d_fake_x.shape).to(self.device))
 
@@ -164,11 +162,12 @@ class Model():
                 # Adversarial loss for cycle-consistent mappings (second step)
                 d2_real_x = self.discriminator_x2(source_mcep_batch)
                 d2_real_y = self.discriminator_y2(target_mcep_batch)
+                d2_fake_x = self.discriminator_x2(fake_x)
+                d2_fake_y = self.discriminator_y2(fake_y)
                 d_cycle_x = self.discriminator_x2(cycle_x)
                 d_cycle_y = self.discriminator_y2(cycle_y)
-                d_adv2_xy = self.criterion_adv(d_cycle_x, torch.zeros(d_real_x.shape).to(self.device)) + self.criterion_adv(d2_real_x, torch.ones(d2_real_x.shape).to(self.device))
-                d_adv2_yx = self.criterion_adv(d_cycle_y, torch.zeros(d_real_y.shape).to(self.device)) + self.criterion_adv(d2_real_y, torch.ones(d2_real_y.shape).to(self.device))
-
+                d_adv2_xy = self.criterion_adv(d_cycle_x, torch.zeros(d_cycle_x.shape).to(self.device)) + (self.criterion_adv(d2_real_x, torch.ones(d2_real_x.shape).to(self.device)) + self.criterion_adv(d2_fake_x, torch.zeros(d2_fake_x.shape).to(self.device))) / 2
+                d_adv2_yx = self.criterion_adv(d_cycle_y, torch.zeros(d_cycle_y.shape).to(self.device)) + (self.criterion_adv(d2_real_y, torch.ones(d2_real_y.shape).to(self.device)) + self.criterion_adv(d2_fake_y, torch.zeros(d2_fake_y.shape).to(self.device))) / 2
 
                 second_adversarial_loss = d_adv2_xy + d_adv2_yx
 
@@ -187,7 +186,7 @@ class Model():
                       f"Adv1 Loss: {first_adversarial_loss.item():.4f}, Adv2 Loss: {second_adversarial_loss.item():.4f}, "
                       f"Cycle Loss: {cycle_consistency_loss.item():.4f}, "
                       f"Identity Loss: {identity_mapping_loss.item():.4f}, "
-                      f"T: {cycle_consistency_loss.item() + identity_mapping_loss.item():.4f}")
+                      f"Total Loss: {first_adversarial_loss.item() + second_adversarial_loss.item() + cycle_consistency_loss.item() + identity_mapping_loss.item():.4f}")
 
             if (epoch + 1) % 20 == 0:
                 self.saveModel(epoch + 1)
@@ -366,7 +365,6 @@ class Model():
 
         fake_mcep = np.concatenate(fake_mcep_chunks, axis=1)
         fake_mcep = np.ascontiguousarray(fake_mcep.T.astype(np.float64))
-        # synthesized_wav = u.reassembleWav(f0_converted, self.eval_dataset.denormalizeMcep(mcep.T, True), ap, 22050, 5)
         synthesized_wav = u.reassembleWav(f0_converted, fake_mcep, ap, 22050, 5)
         u.saveWav(synthesized_wav, "out_synthesized.wav", 22050)
 

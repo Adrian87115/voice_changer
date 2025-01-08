@@ -15,6 +15,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# is loss function correct?
-# is adversarial loss 2 correct? shouldnt zeros and one be opposite to fool generator?
