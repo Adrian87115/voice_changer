@@ -22,23 +22,17 @@ class Model():
         self.generator_yx = g.Generator().to(self.device)
         self.discriminator_x = d.Discriminator().to(self.device)
         self.discriminator_y = d.Discriminator().to(self.device)
-        self.discriminator_x2 = d.Discriminator().to(self.device)
-        self.discriminator_y2 = d.Discriminator().to(self.device)
         self.g_optimizer_xy = optim.Adam(self.generator_xy.parameters(), lr = 0.0002, betas = (0.5, 0.999))
         self.g_optimizer_yx = optim.Adam(self.generator_yx.parameters(), lr = 0.0002, betas = (0.5, 0.999))
         self.d_optimizer_x = optim.Adam(self.discriminator_x.parameters(), lr = 0.0001, betas = (0.5, 0.999))
         self.d_optimizer_y = optim.Adam(self.discriminator_y.parameters(), lr = 0.0001, betas = (0.5, 0.999))
-        self.d_optimizer_x2 = optim.Adam(self.discriminator_x.parameters(), lr = 0.0001, betas = (0.5, 0.999))
-        self.d_optimizer_y2 = optim.Adam(self.discriminator_y.parameters(), lr = 0.0001, betas = (0.5, 0.999))
         self.criterion_adv = nn.MSELoss().to(self.device)
         self.criterion_cycle = nn.L1Loss().to(self.device)
         self.criterion_identity = nn.L1Loss().to(self.device)
-        self.g_scheduler_xy = StepLR(self.g_optimizer_xy, step_size = 100000, gamma = 0.1)
-        self.g_scheduler_yx = StepLR(self.g_optimizer_yx, step_size = 100000, gamma = 0.1)
-        self.d_scheduler_x = StepLR(self.d_optimizer_x, step_size = 100000, gamma = 0.1)
-        self.d_scheduler_y = StepLR(self.d_optimizer_y, step_size = 100000, gamma = 0.1)
-        self.d_scheduler_x2 = StepLR(self.d_optimizer_x, step_size = 100000, gamma = 0.1)
-        self.d_scheduler_y2 = StepLR(self.d_optimizer_y, step_size = 100000, gamma = 0.1)
+        self.g_scheduler_xy = StepLR(self.g_optimizer_xy, step_size = 200000, gamma = 0.1)
+        self.g_scheduler_yx = StepLR(self.g_optimizer_yx, step_size = 200000, gamma = 0.1)
+        self.d_scheduler_x = StepLR(self.d_optimizer_x, step_size = 200000, gamma = 0.1)
+        self.d_scheduler_y = StepLR(self.d_optimizer_y, step_size = 200000, gamma = 0.1)
         self.source = source
         self.target = target
         self.iteration = 0
@@ -50,31 +44,23 @@ class Model():
             'generator_yx_state_dict': self.generator_yx.state_dict(),
             'discriminator_x_state_dict': self.discriminator_x.state_dict(),
             'discriminator_y_state_dict': self.discriminator_y.state_dict(),
-            'discriminator_x2_state_dict': self.discriminator_x2.state_dict(),
-            'discriminator_y2_state_dict': self.discriminator_y2.state_dict(),
             'g_optimizer_xy_state_dict': self.g_optimizer_xy.state_dict(),
             'g_optimizer_yx_state_dict': self.g_optimizer_yx.state_dict(),
             'd_optimizer_x_state_dict': self.d_optimizer_x.state_dict(),
             'd_optimizer_y_state_dict': self.d_optimizer_y.state_dict(),
-            'd_optimizer_x2_state_dict': self.d_optimizer_x2.state_dict(),
-            'd_optimizer_y2_state_dict': self.d_optimizer_y2.state_dict(),
             'iteration': self.iteration}, file_path)
 
     def loadModel(self):
-        file_path = "saved_model_epoch_20.pth"
+        file_path = "saved_model_epoch_420.pth"
         checkpoint = torch.load(file_path)
         self.generator_xy.load_state_dict(checkpoint['generator_xy_state_dict'])
         self.generator_yx.load_state_dict(checkpoint['generator_yx_state_dict'])
         self.discriminator_x.load_state_dict(checkpoint['discriminator_x_state_dict'])
         self.discriminator_y.load_state_dict(checkpoint['discriminator_y_state_dict'])
-        self.discriminator_x2.load_state_dict(checkpoint['discriminator_x2_state_dict'])
-        self.discriminator_y2.load_state_dict(checkpoint['discriminator_y2_state_dict'])
         self.g_optimizer_xy.load_state_dict(checkpoint['g_optimizer_xy_state_dict'])
         self.g_optimizer_yx.load_state_dict(checkpoint['g_optimizer_yx_state_dict'])
         self.d_optimizer_x.load_state_dict(checkpoint['d_optimizer_x_state_dict'])
         self.d_optimizer_y.load_state_dict(checkpoint['d_optimizer_y_state_dict'])
-        self.d_optimizer_x2.load_state_dict(checkpoint['d_optimizer_x2_state_dict'])
-        self.d_optimizer_y2.load_state_dict(checkpoint['d_optimizer_y2_state_dict'])
         self.iteration = checkpoint['iteration']
 
     def resetGrad(self):
@@ -82,8 +68,6 @@ class Model():
         self.g_optimizer_yx.zero_grad()
         self.d_optimizer_x.zero_grad()
         self.d_optimizer_y.zero_grad()
-        self.d_optimizer_x2.zero_grad()
-        self.d_optimizer_y2.zero_grad()
 
     def getData(self, source, target):
         path_train = "training_data/transformed_audio"
@@ -160,14 +144,12 @@ class Model():
                 first_adversarial_loss = d_adv1_xy + d_adv1_yx
 
                 # Adversarial loss for cycle-consistent mappings (second step)
-                d2_real_x = self.discriminator_x2(source_mcep_batch)
-                d2_real_y = self.discriminator_y2(target_mcep_batch)
-                d2_fake_x = self.discriminator_x2(fake_x)
-                d2_fake_y = self.discriminator_y2(fake_y)
-                d_cycle_x = self.discriminator_x2(cycle_x)
-                d_cycle_y = self.discriminator_y2(cycle_y)
-                d_adv2_xy = self.criterion_adv(d_cycle_x, torch.zeros(d_cycle_x.shape).to(self.device)) + (self.criterion_adv(d2_real_x, torch.ones(d2_real_x.shape).to(self.device)) + self.criterion_adv(d2_fake_x, torch.zeros(d2_fake_x.shape).to(self.device))) / 2
-                d_adv2_yx = self.criterion_adv(d_cycle_y, torch.zeros(d_cycle_y.shape).to(self.device)) + (self.criterion_adv(d2_real_y, torch.ones(d2_real_y.shape).to(self.device)) + self.criterion_adv(d2_fake_y, torch.zeros(d2_fake_y.shape).to(self.device))) / 2
+                d_real_x = self.discriminator_x(source_mcep_batch)
+                d_real_y = self.discriminator_y(target_mcep_batch)
+                d_cycle_x = self.discriminator_x(cycle_x)
+                d_cycle_y = self.discriminator_y(cycle_y)
+                d_adv2_xy = self.criterion_adv(d_cycle_x, torch.zeros(d_cycle_x.shape).to(self.device)) + (self.criterion_adv(d_real_x, torch.ones(d_real_x.shape).to(self.device)) + self.criterion_adv(d_fake_x, torch.zeros(d_fake_x.shape).to(self.device))) / 2
+                d_adv2_yx = self.criterion_adv(d_cycle_y, torch.zeros(d_cycle_y.shape).to(self.device)) + (self.criterion_adv(d_real_y, torch.ones(d_real_y.shape).to(self.device)) + self.criterion_adv(d_fake_y, torch.zeros(d_fake_y.shape).to(self.device))) / 2
 
                 second_adversarial_loss = d_adv2_xy + d_adv2_yx
 
@@ -179,8 +161,6 @@ class Model():
                 self.g_optimizer_yx.step()
                 self.d_optimizer_x.step()
                 self.d_optimizer_y.step()
-                self.d_optimizer_x2.step()
-                self.d_optimizer_y2.step()
 
                 print(f"Epoch [{epoch + 1}/{num_epochs}] Batch {i + 1}/{len(self.source_loader)}: "
                       f"Adv1 Loss: {first_adversarial_loss.item():.4f}, Adv2 Loss: {second_adversarial_loss.item():.4f}, "
@@ -197,8 +177,6 @@ class Model():
             self.g_scheduler_yx.step()
             self.d_scheduler_x.step()
             self.d_scheduler_y.step()
-            self.d_scheduler_x2.step()
-            self.d_scheduler_y2.step()
 
     def evaluate(self):
         self.loadModel()
@@ -206,8 +184,6 @@ class Model():
         self.generator_yx.eval()
         self.discriminator_x.eval()
         self.discriminator_y.eval()
-        self.discriminator_x2.eval()
-        self.discriminator_y2.eval()
 
         avg_d_loss = 0.0
         avg_g_loss = 0.0
