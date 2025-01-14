@@ -51,7 +51,7 @@ class Model():
             'iteration': self.iteration}, file_path)
 
     def loadModel(self):
-        file_path = "saved_model_epoch_420.pth"
+        file_path = "saved_model_epoch_300.pth"
         checkpoint = torch.load(file_path)
         self.generator_xy.load_state_dict(checkpoint['generator_xy_state_dict'])
         self.generator_yx.load_state_dict(checkpoint['generator_yx_state_dict'])
@@ -87,7 +87,7 @@ class Model():
         self.eval_source_loader = DataLoader(eval_source_dataset, batch_size = 1, shuffle = True, num_workers = 1, pin_memory = True)
         self.eval_target_loader = DataLoader(eval_target_dataset, batch_size = 1, shuffle = True, num_workers = 1, pin_memory = True)
 
-    def train(self, load_state = False, num_epochs = 1000):
+    def train(self, load_state = False, num_epochs = 2000):
         if load_state:
             self.loadModel()
         print("Training model...")
@@ -168,7 +168,7 @@ class Model():
                       f"Identity Loss: {identity_mapping_loss.item():.4f}, "
                       f"Total Loss: {first_adversarial_loss.item() + second_adversarial_loss.item() + cycle_consistency_loss.item() + identity_mapping_loss.item():.4f}")
 
-            if (epoch + 1) % 20 == 0:
+            if (epoch + 1) % 50 == 0:
                 self.saveModel(epoch + 1)
 
             # self.evaluate()
@@ -178,105 +178,80 @@ class Model():
             self.d_scheduler_x.step()
             self.d_scheduler_y.step()
 
-    def evaluate(self):
+    def evaluate(self):# add mcd and the other one
         self.loadModel()
+        print("Evaluating model...")
         self.generator_xy.eval()
         self.generator_yx.eval()
         self.discriminator_x.eval()
         self.discriminator_y.eval()
 
-        avg_d_loss = 0.0
-        avg_g_loss = 0.0
-        avg_cycle_loss = 0.0
-        avg_identity_loss = 0.0
-        avg_mcd = 0.0
-        avg_msd = 0.0
-        num_batches = 0
+        cycle_loss_lambda = 10
+        identity_loss_lambda = 5
 
         with torch.no_grad():
-            target_iter = iter(self.eval_target_loader)
-            for i, source_sample in enumerate(self.eval_source_loader):
+            target_iter = iter(self.target_loader)
+            for i, source_sample in enumerate(self.source_loader):
                 try:
                     target_sample = next(target_iter)
                 except StopIteration:
-                    target_iter = iter(self.eval_target_loader)
+                    target_iter = iter(self.target_loader)
                     target_sample = next(target_iter)
 
                 source_mcep_batch, _ = source_sample
                 target_mcep_batch, _ = target_sample
-
                 source_mcep_batch = torch.stack([torch.tensor(ad.getMcepSlice(mcep)) for mcep in source_mcep_batch])
                 target_mcep_batch = torch.stack([torch.tensor(ad.getMcepSlice(mcep)) for mcep in target_mcep_batch])
-
-                source_mcep_batch = source_mcep_batch.transpose(-1, -2).to(self.device)
-                target_mcep_batch = target_mcep_batch.transpose(-1, -2).to(self.device)
-
+                source_mcep_batch = source_mcep_batch.transpose(-1, -2)
+                target_mcep_batch = target_mcep_batch.transpose(-1, -2)
                 batch_size = source_mcep_batch.size(0)
                 target_batch_size = target_mcep_batch.size(0)
-
                 if target_batch_size < batch_size:
                     repeat_factor = (batch_size + target_batch_size - 1) // target_batch_size
                     target_mcep_batch = target_mcep_batch.repeat(repeat_factor, 1, 1)[:batch_size]
                 elif target_batch_size > batch_size:
                     target_mcep_batch = target_mcep_batch[:batch_size]
 
-                # Forward-inverse mapping: x -> y -> x'
-                fake_y = self.generator_xy(source_mcep_batch)
-                cycle_x = self.generator_yx(fake_y)
-
-                # Inverse-forward mapping: y -> x -> y'
-                fake_x = self.generator_yx(target_mcep_batch)
-                cycle_y = self.generator_xy(fake_x)
+                source_mcep_batch = source_mcep_batch.to(self.device)
+                target_mcep_batch = target_mcep_batch.to(self.device)
 
                 # Identity mapping: x -> x', y -> y'
                 identity_x = self.generator_yx(source_mcep_batch)
                 identity_y = self.generator_xy(target_mcep_batch)
+                identity_loss = identity_loss_lambda * (self.criterion_identity(identity_x, source_mcep_batch) + self.criterion_identity(identity_y,
+                                                                                                             target_mcep_batch))
+
+                # Forward-inverse mapping: x -> y -> x', Inverse-forward mapping: y -> x -> y'
+                fake_y = self.generator_xy(source_mcep_batch)
+                cycle_x = self.generator_yx(fake_y)
+                fake_x = self.generator_yx(target_mcep_batch)
+                cycle_y = self.generator_xy(fake_x)
+                cycle_loss = cycle_loss_lambda * (self.criterion_cycle(cycle_x, source_mcep_batch) + self.criterion_cycle(cycle_y, target_mcep_batch))
 
                 # Adversarial loss for direct mappings (first step)
                 d_fake_x = self.discriminator_x(fake_x)
                 d_fake_y = self.discriminator_y(fake_y)
-                d_target_mcep_batch = self.discriminator_y(target_mcep_batch)
-                d_source_mcep_batch = self.discriminator_x(source_mcep_batch)
-                d_generator_loss_xy = self.criterion_adv(d_target_mcep_batch, d_fake_y)
-                d_generator_loss_yx = self.criterion_adv(d_source_mcep_batch, d_fake_x)
+                adv_loss1_xy = self.criterion_adv(d_fake_y, torch.ones(d_fake_y.shape).to(self.device))
+                adv_loss1_yx = self.criterion_adv(d_fake_x, torch.ones(d_fake_x.shape).to(self.device))
+                adv_loss1 = adv_loss1_xy + adv_loss1_yx
 
                 # Adversarial loss for cycle-consistent mappings (second step)
+                d_real_x = self.discriminator_x(source_mcep_batch)
+                d_real_y = self.discriminator_y(target_mcep_batch)
                 d_cycle_x = self.discriminator_x(cycle_x)
                 d_cycle_y = self.discriminator_y(cycle_y)
-                d_generator_loss_cycle_x = self.criterion_adv(d_source_mcep_batch, d_cycle_x)
-                d_generator_loss_cycle_y = self.criterion_adv(d_target_mcep_batch, d_cycle_y)
+                adv_loss2_xy = self.criterion_adv(d_cycle_x, torch.zeros(d_cycle_x.shape).to(self.device)) + (self.criterion_adv(d_real_x, torch.ones(d_real_x.shape).to(self.device)) + self.criterion_adv(d_fake_x, torch.zeros(d_fake_x.shape).to(self.device))) / 2
+                adv_loss2_yx = self.criterion_adv(d_cycle_y, torch.zeros(d_cycle_y.shape).to(self.device)) + (self.criterion_adv(d_real_y, torch.ones(d_real_y.shape).to(self.device)) + self.criterion_adv(d_fake_y, torch.zeros(d_fake_y.shape).to(self.device))) / 2
+                adv_loss2 = adv_loss2_xy + adv_loss2_yx
 
-                # Cycle and identity consistency losses
-                cycle_loss = self.criterion_cycle(source_mcep_batch, cycle_x) + self.criterion_cycle(target_mcep_batch, cycle_y)
-                identity_loss = self.criterion_identity(source_mcep_batch, identity_x) + self.criterion_identity(target_mcep_batch, identity_y)
+                total_loss = cycle_loss.item() + identity_loss.item() + adv_loss1.item() + adv_loss2.item()
 
-                # Calculate MCD and MSD
-                mcd_value = u.calculateMcd(source_mcep_batch, cycle_x)
-                msd_value = u.calculateMsd(target_mcep_batch, cycle_y)
-
-                generator_loss = 10 * cycle_loss + 5 * identity_loss
-                discriminator_loss = d_generator_loss_xy + d_generator_loss_yx + d_generator_loss_cycle_x + d_generator_loss_cycle_y
-
-                avg_d_loss += discriminator_loss.item()
-                avg_g_loss += generator_loss.item()
-                avg_cycle_loss += cycle_loss.item()
-                avg_identity_loss += identity_loss.item()
-                avg_mcd += mcd_value
-                avg_msd += msd_value
-                num_batches += 1
-
-                if i == 0:
-                    break
-
-        avg_d_loss /= num_batches
-        avg_g_loss /= num_batches
-        avg_cycle_loss /= num_batches
-        avg_identity_loss /= num_batches
-        avg_mcd /= num_batches
-        avg_msd /= num_batches
-
-        print(f"Evaluation Results: D Loss: {avg_d_loss:.4f}, G Loss: {avg_g_loss:.4f}, Cycle Loss: {avg_cycle_loss:.4f}, Identity Loss: {avg_identity_loss:.4f}, MCD: {avg_mcd:.4f}, MSD: {avg_msd:.4f}")
-        return avg_d_loss, avg_g_loss, avg_cycle_loss, avg_identity_loss, avg_mcd, avg_msd
+                print(f"Evaluation Results: "
+                      f"Adv1 Loss: {adv_loss1.item():.4f}, "
+                      f"Adv2 Loss: {adv_loss2.item():.4f}, "
+                      f"Cycle Loss: {cycle_loss.item():.4f}, "
+                      f"Identity Loss: {identity_loss.item():.4f}, "
+                      f"Total Loss: {total_loss:.4f}")
 
     def voiceToTarget(self, source, target, path_to_source_data):
         self.loadModel()

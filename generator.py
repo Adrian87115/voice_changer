@@ -83,7 +83,7 @@ class Generator(nn.Module):
                                              stride = 1,
                                              padding = 0),
                                    nn.InstanceNorm1d(num_features = 2304, affine = True))
-        self.up1 = self._up_block(in_channels = 256,
+        self.up1 = self._up_block(in_channels = 512, # 256
                                   out_channels = 1024,
                                   kernel_size = (5, 5),
                                   stride = (3, 1),
@@ -96,7 +96,7 @@ class Generator(nn.Module):
         self.conv4 = nn.Conv2d(in_channels = 128 // 2,
                                out_channels = 35,
                                kernel_size = (5, 15),
-                               stride = (4, 1),
+                               stride = (3, 1), # (4, 1)
                                padding = (2, 7))
 
     @staticmethod
@@ -136,7 +136,7 @@ class Generator(nn.Module):
         residual5 = self.residual5(residual4)
         residual6 = self.residual6(residual5)
         residual6 = self.conv3(residual6)
-        residual6 = residual6.view([x.shape[0], 256, 9, -1])
+        residual6 = residual6.view([x.shape[0], 512, 9, -1]) # 256
         up1 = self.up1(residual6)
         up2 = self.up2(up1)
         conv4 = self.conv4(up2)
