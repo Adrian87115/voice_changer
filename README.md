@@ -28,7 +28,7 @@ Based on:
 
 Training data: https://datashare.ed.ac.uk/handle/10283/3061
 
-Folder results/samples contains examples of conversion during different stages of training between VCC2SF1 and VCC2SM2.
+Folder results/samples contains examples of conversion between VCC2SF1 and VCC2SM2.
 There are present two approaches, which differs only in the architecture of the generator. Each of them was trained for over 100,000 iterations.
 
 
