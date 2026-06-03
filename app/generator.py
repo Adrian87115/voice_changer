@@ -1,6 +1,4 @@
-import torch
 import torch.nn as nn
-import torch.nn.functional as f
 
 class ResidualLayer(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride, padding):
@@ -29,19 +27,19 @@ class Generator(nn.Module):
         self.conv1 = nn.Conv2d(in_channels = 1,
                                out_channels = 128,
                                kernel_size = (5, 15),
-                               stride = (1, 1),
+                               stride = 1,
                                padding = (2, 7))
         self.glu = nn.GLU(dim = 1)
         self.down1 = self._down_block(in_channels = 128 // 2,
                                       out_channels = 256,
                                       kernel_size = 5,
-                                      stride = (2, 2),
-                                      padding = (2, 2))
+                                      stride = 2,
+                                      padding = 2)
         self.down2 = self._down_block(in_channels = 256 // 2,
                                       out_channels = 512,
-                                      kernel_size = (5, 5),
-                                      stride = (2, 2),
-                                      padding = (2, 2))
+                                      kernel_size = 5,
+                                      stride = 2,
+                                      padding = 2)
         self.conv2 = nn.Sequential(nn.Conv1d(in_channels = 2304,
                                              out_channels = 256,
                                              kernel_size = 1,
@@ -83,20 +81,20 @@ class Generator(nn.Module):
                                              stride = 1,
                                              padding = 0),
                                    nn.InstanceNorm1d(num_features = 2304, affine = True))
-        self.up1 = self._up_block(in_channels = 512, # 256
+        self.up1 = self._up_block(in_channels = 256,
                                   out_channels = 1024,
-                                  kernel_size = (5, 5),
-                                  stride = (3, 1),
-                                  padding = (2, 2))
+                                  kernel_size = 5,
+                                  stride = 1,
+                                  padding = 2)
         self.up2 = self._up_block(in_channels = 256 // 2,
                                   out_channels = 512,
-                                  kernel_size = (5, 5),
-                                  stride = (3, 1),
-                                  padding = (2, 2))
+                                  kernel_size = 5,
+                                  stride = 1,
+                                  padding = 2)
         self.conv4 = nn.Conv2d(in_channels = 128 // 2,
-                               out_channels = 35,
+                               out_channels = 1,
                                kernel_size = (5, 15),
-                               stride = (3, 1), # (4, 1)
+                               stride = 1,
                                padding = (2, 7))
 
     @staticmethod
@@ -122,7 +120,8 @@ class Generator(nn.Module):
 
     def forward(self, x):
         if len(x.shape) == 3:
-            x = x.unsqueeze(1) # x is of shape b, c, h, w = 1, 1, 35, 128
+            x = x.unsqueeze(1) # x is of shape b, c, h, w: 1, 1, 35, 128
+        
         conv1 = self.conv1(x)
         glu = self.glu(conv1)
         down1 = self.down1(glu)
@@ -136,9 +135,10 @@ class Generator(nn.Module):
         residual5 = self.residual5(residual4)
         residual6 = self.residual6(residual5)
         residual6 = self.conv3(residual6)
-        residual6 = residual6.view([x.shape[0], 512, 9, -1]) # 256
+        residual6 = residual6.view([x.shape[0], 256, 9, -1])
         up1 = self.up1(residual6)
         up2 = self.up2(up1)
         conv4 = self.conv4(up2)
-        output = conv4.view([x.shape[0], 1, 35, -1]).squeeze(1)
+        cropped_output = conv4[:, :, :35, :]
+        output = cropped_output.squeeze(1)
         return output
