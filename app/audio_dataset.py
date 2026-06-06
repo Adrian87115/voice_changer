@@ -2,18 +2,18 @@ import os
 import numpy as np
 import random
 
-all_labels = ["VCC2SF1",
-              "VCC2SF2",
-              "VCC2SF3",
-              "VCC2SF4",
-              "VCC2SM1",
-              "VCC2SM2",
-              "VCC2SM3",
-              "VCC2SM4",
-              "VCC2TF1",
-              "VCC2TF2",
-              "VCC2TM1",
-              "VCC2TM2"]
+all_labels = ['VCC2SF1',
+              'VCC2SF2',
+              'VCC2SF3',
+              'VCC2SF4',
+              'VCC2SM1',
+              'VCC2SM2',
+              'VCC2SM3',
+              'VCC2SM4',
+              'VCC2TF1',
+              'VCC2TF2',
+              'VCC2TM1',
+              'VCC2TM2']
 
 class AudioDataset:
     def __init__(self, root_dir, source, target, source_mean_g = None, source_std_g = None, target_mean_g = None, target_std_g = None):

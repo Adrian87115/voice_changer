@@ -34,7 +34,6 @@ class Discriminator(nn.Module):
                                kernel_size = (1, 3),
                                stride = 1,
                                padding = (0, 1))
-        self.sigmoid = nn.Sigmoid()
 
     @staticmethod
     def _block(in_channels, out_channels, kernel_size, stride, padding):

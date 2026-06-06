@@ -7,6 +7,7 @@ from torch.optim.lr_scheduler import StepLR
 import warnings
 import matplotlib.pyplot as plt
 import numpy as np
+import itertools
 
 import app.generator as g
 import app.discriminator as d
@@ -36,29 +37,19 @@ class Model():
         self.discriminator_x2 = d.Discriminator().to(self.device)
         self.discriminator_y2 = d.Discriminator().to(self.device)
 
+        self.g_optimizer = optim.Adam(itertools.chain(self.generator_xy.parameters(), 
+                                                      self.generator_yx.parameters()), lr = 2e-4, betas = (0.5, 0.999))
+        self.d_optimizer = optim.Adam(itertools.chain(self.discriminator_x.parameters(), 
+                                                      self.discriminator_y.parameters(), 
+                                                      self.discriminator_x2.parameters(), 
+                                                      self.discriminator_y2.parameters()), lr = 1e-4, betas = (0.5, 0.999))
 
-        self.g_optimizer_xy = optim.AdamW(self.generator_xy.parameters(), lr = 0.0002, betas = (0.5, 0.999), weight_decay = 1e-4)
-        self.g_optimizer_yx = optim.AdamW(self.generator_yx.parameters(), lr = 0.0002, betas = (0.5, 0.999), weight_decay = 1e-4)
-
-        self.d_optimizer_x = optim.AdamW(self.discriminator_x.parameters(), lr = 0.0001, betas = (0.5, 0.999), weight_decay = 1e-4)
-        self.d_optimizer_y = optim.AdamW(self.discriminator_y.parameters(), lr = 0.0001, betas = (0.5, 0.999), weight_decay = 1e-4)
-        self.d_optimizer_x2 = optim.AdamW(self.discriminator_x2.parameters(), lr = 0.0001, betas = (0.5, 0.999), weight_decay = 1e-4)
-        self.d_optimizer_y2 = optim.AdamW(self.discriminator_y2.parameters(), lr = 0.0001, betas = (0.5, 0.999), weight_decay = 1e-4)
-
-
+        self.g_scheduler = StepLR(self.g_optimizer, step_size = 200000, gamma = 0.1)
+        self.d_scheduler = StepLR(self.d_optimizer, step_size = 200000, gamma = 0.1)
+        
         self.criterion_adv = nn.MSELoss().to(self.device)
         self.criterion_cycle = nn.L1Loss().to(self.device)
         self.criterion_identity = nn.L1Loss().to(self.device)
-
-
-        self.g_scheduler_xy = StepLR(self.g_optimizer_xy, step_size = 200000, gamma = 0.1)
-        self.g_scheduler_yx = StepLR(self.g_optimizer_yx, step_size = 200000, gamma = 0.1)
-
-        self.d_scheduler_x = StepLR(self.d_optimizer_x, step_size = 200000, gamma = 0.1)
-        self.d_scheduler_y = StepLR(self.d_optimizer_y, step_size = 200000, gamma = 0.1)
-        self.d_scheduler_x2 = StepLR(self.d_optimizer_x2, step_size = 200000, gamma = 0.1)
-        self.d_scheduler_y2 = StepLR(self.d_optimizer_y2, step_size = 200000, gamma = 0.1)
-
 
         self.source = source
         self.target = target
@@ -77,21 +68,11 @@ class Model():
                     'discriminator_x2_state_dict': self.discriminator_x2.state_dict(),
                     'discriminator_y2_state_dict': self.discriminator_y2.state_dict(),
 
-                    'g_optimizer_xy_state_dict': self.g_optimizer_xy.state_dict(),
-                    'g_optimizer_yx_state_dict': self.g_optimizer_yx.state_dict(),
+                    'g_optimizer_state_dict': self.g_optimizer.state_dict(),
+                    'd_optimizer_state_dict': self.d_optimizer.state_dict(),
 
-                    'd_optimizer_x_state_dict': self.d_optimizer_x.state_dict(),
-                    'd_optimizer_y_state_dict': self.d_optimizer_y.state_dict(),
-                    'd_optimizer_x2_state_dict': self.d_optimizer_x2.state_dict(),
-                    'd_optimizer_y2_state_dict': self.d_optimizer_y2.state_dict(),
-
-                    'g_scheduler_xy_state_dict': self.g_scheduler_xy.state_dict(),
-                    'g_scheduler_yx_state_dict': self.g_scheduler_yx.state_dict(),
-                    
-                    'd_scheduler_x_state_dict': self.d_scheduler_x.state_dict(),
-                    'd_scheduler_y_state_dict': self.d_scheduler_y.state_dict(),
-                    'd_scheduler_x2_state_dict': self.d_scheduler_x2.state_dict(),
-                    'd_scheduler_y2_state_dict': self.d_scheduler_y2.state_dict(),
+                    'g_scheduler_state_dict': self.g_scheduler.state_dict(),
+                    'd_scheduler_state_dict': self.d_scheduler.state_dict(),
 
                     'iteration': self.iteration,
                     'epoch_restored': epoch}, file_path)
@@ -110,21 +91,11 @@ class Model():
         self.discriminator_x2.load_state_dict(checkpoint['discriminator_x2_state_dict'])
         self.discriminator_y2.load_state_dict(checkpoint['discriminator_y2_state_dict'])
 
-        self.g_optimizer_xy.load_state_dict(checkpoint['g_optimizer_xy_state_dict'])
-        self.g_optimizer_yx.load_state_dict(checkpoint['g_optimizer_yx_state_dict'])
+        self.g_optimizer.load_state_dict(checkpoint['g_optimizer_state_dict'])
+        self.d_optimizer.load_state_dict(checkpoint['d_optimizer_state_dict'])
 
-        self.d_optimizer_x.load_state_dict(checkpoint['d_optimizer_x_state_dict'])
-        self.d_optimizer_y.load_state_dict(checkpoint['d_optimizer_y_state_dict'])
-        self.d_optimizer_x2.load_state_dict(checkpoint['d_optimizer_x2_state_dict'])
-        self.d_optimizer_y2.load_state_dict(checkpoint['d_optimizer_y2_state_dict'])
-
-        self.g_scheduler_xy.load_state_dict(checkpoint['g_scheduler_xy_state_dict'])
-        self.g_scheduler_yx.load_state_dict(checkpoint['g_scheduler_yx_state_dict'])
-
-        self.d_scheduler_x.load_state_dict(checkpoint['d_scheduler_x_state_dict'])
-        self.d_scheduler_y.load_state_dict(checkpoint['d_scheduler_y_state_dict'])
-        self.d_scheduler_x2.load_state_dict(checkpoint['d_scheduler_x2_state_dict'])
-        self.d_scheduler_y2.load_state_dict(checkpoint['d_scheduler_y2_state_dict'])
+        self.g_scheduler.load_state_dict(checkpoint['g_scheduler_state_dict'])
+        self.d_scheduler.load_state_dict(checkpoint['d_scheduler_state_dict'])
 
         self.iteration = checkpoint['iteration']
         self.epoch_restored = checkpoint['epoch_restored']
@@ -150,7 +121,7 @@ class Model():
         self.eval_source_loader = DataLoader(eval_source_dataset, batch_size = 1, shuffle = True, num_workers = 0, pin_memory = True)
         self.eval_target_loader = DataLoader(eval_target_dataset, batch_size = 1, shuffle = True, num_workers = 0, pin_memory = True)
 
-    def train(self, checkpoint = None, num_save = 2, num_eval = 2, num_log = 2, num_epochs = 2470):
+    def train(self, checkpoint = None, num_save = 200, num_eval = 100, num_log = 10, num_epochs = 2470):
         if checkpoint:
             self.loadModel(checkpoint)
 
@@ -213,8 +184,7 @@ class Model():
                 # GENERATOR UPDATE
                 # ================
 
-                self.g_optimizer_xy.zero_grad()
-                self.g_optimizer_yx.zero_grad()
+                self.g_optimizer.zero_grad()
 
                 # Identity Loss
                 identity_mapping_loss = identity_loss_lambda * (self.criterion_identity(identity_x, source_mcep_batch) + self.criterion_identity(identity_y, target_mcep_batch))
@@ -242,21 +212,15 @@ class Model():
                 # Total Generator Loss
                 g_total_loss = identity_mapping_loss + cycle_consistency_loss + g_first_adversarial_loss + g_second_adversarial_loss
                 g_total_loss.backward()
+                self.g_optimizer.step()
 
-                self.g_optimizer_xy.step()
-                self.g_optimizer_yx.step()
-
-                self.g_scheduler_xy.step()
-                self.g_scheduler_yx.step()
+                self.g_scheduler.step()
 
                 # ====================
                 # DISCRIMINATOR UPDATE
                 # ====================
 
-                self.d_optimizer_x.zero_grad()
-                self.d_optimizer_y.zero_grad()
-                self.d_optimizer_x2.zero_grad()
-                self.d_optimizer_y2.zero_grad()
+                self.d_optimizer.zero_grad()
 
                 # Real scores
                 d_real_x = self.discriminator_x(source_mcep_batch)
@@ -282,19 +246,12 @@ class Model():
 
                 d_second_adversarial_loss = d2_loss_x + d2_loss_y
 
-                # Total Discriminator Loss, scaled to slow down in relation to Generator
-                d_total_loss = (d_first_adversarial_loss + d_second_adversarial_loss) * 0.5
+                # Total Discriminator Loss
+                d_total_loss = d_first_adversarial_loss + d_second_adversarial_loss
                 d_total_loss.backward()
-                
-                self.d_optimizer_x.step()
-                self.d_optimizer_y.step()
-                self.d_optimizer_x2.step()
-                self.d_optimizer_y2.step()
+                self.d_optimizer.step()
 
-                self.d_scheduler_x.step()
-                self.d_scheduler_y.step()
-                self.d_scheduler_x2.step()
-                self.d_scheduler_y2.step()
+                self.d_scheduler.step()
 
                 epoch_stats['G_Adv1'] += g_first_adversarial_loss.item()
                 epoch_stats['G_Adv2'] += g_second_adversarial_loss.item()
@@ -346,17 +303,17 @@ class Model():
         if self.iteration >= 10000:
             identity_loss_lambda = 0 
 
-        num_batches = len(self.source_loader)
+        num_batches = len(self.eval_source_loader)
         eval_stats = {'G_Adv1': 0.0, 'G_Adv2': 0.0, 'Cycle': 0.0, 'Identity': 0.0, 'G_Total': 0.0, 'D_Adv1': 0.0, 'D_Adv2': 0.0, 'D_Total': 0.0}
 
         with torch.no_grad():
-            target_iter = iter(self.target_loader)
+            target_iter = iter(self.eval_target_loader)
             
-            for i, source_sample in enumerate(self.source_loader):
+            for i, source_sample in enumerate(self.eval_source_loader):
                 try:
                     target_sample = next(target_iter)
                 except StopIteration:
-                    target_iter = iter(self.target_loader)
+                    target_iter = iter(self.eval_target_loader)
                     target_sample = next(target_iter)
 
                 source_mcep_batch, _ = source_sample
@@ -429,7 +386,7 @@ class Model():
                 d2_loss_y = self.criterion_adv(d2_real_y, torch.ones_like(d2_real_y).to(self.device)) + self.criterion_adv(d_cycle_y, torch.zeros_like(d_cycle_y).to(self.device))
                 d_second_adversarial_loss = d2_loss_x + d2_loss_y
 
-                d_total_loss = (d_first_adversarial_loss + d_second_adversarial_loss) * 0.5
+                d_total_loss = d_first_adversarial_loss + d_second_adversarial_loss
 
                 eval_stats['G_Adv1'] += g_first_adversarial_loss.item()
                 eval_stats['G_Adv2'] += g_second_adversarial_loss.item()

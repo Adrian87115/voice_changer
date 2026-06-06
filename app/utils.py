@@ -93,15 +93,15 @@ def processAudio(input_filename, output_filename):
     tf = mcep.shape[0]
     np.savez(output_filename, f0 = f0, mcep = mcep, source_parameter = ap, time_frames = tf)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(app_dir)
 
     training_data_dir = os.path.join(project_root, 'data', 'training_data', 'audio')
     evaluation_data_dir = os.path.join(project_root, 'data', 'evaluation_data', 'audio')
 
-    print(f"Processing training data at: {training_data_dir}")
+    print(f'Processing training data at: {training_data_dir}')
     batchProcessAudio(training_data_dir)
     
-    print(f"Processing evaluation data at: {evaluation_data_dir}")
+    print(f'Processing evaluation data at: {evaluation_data_dir}')
     batchProcessAudio(evaluation_data_dir)
