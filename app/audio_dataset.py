@@ -69,8 +69,8 @@ class AudioDataset:
         merged_source_mcep = np.concatenate(self.source_mcep, axis = 0)
 
         if self.source_mean is None:
-            self.source_mean = np.mean(merged_source_mcep)
-            self.source_std = np.std(merged_source_mcep)
+            self.source_mean = np.mean(merged_source_mcep, axis = 0, keepdims = True)
+            self.source_std = np.std(merged_source_mcep, axis = 0, keepdims = True)
 
         for i in range(len(self.source_mcep)):
             self.source_mcep[i] = (self.source_mcep[i] - self.source_mean) / (self.source_std + 1e-8)
@@ -78,8 +78,8 @@ class AudioDataset:
         merged_target_mcep = np.concatenate(self.target_mcep, axis = 0)
 
         if self.target_mean is None:
-            self.target_mean = np.mean(merged_target_mcep)
-            self.target_std = np.std(merged_target_mcep)
+            self.target_mean = np.mean(merged_target_mcep, axis = 0, keepdims = True)
+            self.target_std = np.std(merged_target_mcep, axis = 0, keepdims = True)
 
         for i in range(len(self.target_mcep)):
             self.target_mcep[i] = (self.target_mcep[i] - self.target_mean) / (self.target_std + 1e-8)
