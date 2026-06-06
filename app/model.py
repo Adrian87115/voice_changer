@@ -3,11 +3,11 @@ import torch
 import torch.optim as optim
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from torch.optim.lr_scheduler import StepLR
 import warnings
 import matplotlib.pyplot as plt
 import numpy as np
 import itertools
+import random
 
 import app.generator as g
 import app.discriminator as d
@@ -43,9 +43,6 @@ class Model():
                                                       self.discriminator_y.parameters(), 
                                                       self.discriminator_x2.parameters(), 
                                                       self.discriminator_y2.parameters()), lr = 1e-4, betas = (0.5, 0.999))
-
-        self.g_scheduler = StepLR(self.g_optimizer, step_size = 200000, gamma = 0.1)
-        self.d_scheduler = StepLR(self.d_optimizer, step_size = 200000, gamma = 0.1)
         
         self.criterion_adv = nn.MSELoss().to(self.device)
         self.criterion_cycle = nn.L1Loss().to(self.device)
@@ -71,9 +68,6 @@ class Model():
                     'g_optimizer_state_dict': self.g_optimizer.state_dict(),
                     'd_optimizer_state_dict': self.d_optimizer.state_dict(),
 
-                    'g_scheduler_state_dict': self.g_scheduler.state_dict(),
-                    'd_scheduler_state_dict': self.d_scheduler.state_dict(),
-
                     'iteration': self.iteration,
                     'epoch_restored': epoch}, file_path)
         
@@ -93,9 +87,6 @@ class Model():
 
         self.g_optimizer.load_state_dict(checkpoint['g_optimizer_state_dict'])
         self.d_optimizer.load_state_dict(checkpoint['d_optimizer_state_dict'])
-
-        self.g_scheduler.load_state_dict(checkpoint['g_scheduler_state_dict'])
-        self.d_scheduler.load_state_dict(checkpoint['d_scheduler_state_dict'])
 
         self.iteration = checkpoint['iteration']
         self.epoch_restored = checkpoint['epoch_restored']
@@ -138,8 +129,6 @@ class Model():
             for i, source_sample in enumerate(self.source_loader):
                 self.iteration += 1
 
-                if self.iteration > 10000:
-                    identity_loss_lambda = 0
                 try:
                     target_sample = next(target_iter)
                 except StopIteration:
@@ -152,14 +141,6 @@ class Model():
                 target_mcep_batch = torch.stack([torch.tensor(ad.getMcepSlice(mcep)) for mcep in target_mcep_batch])
                 source_mcep_batch = source_mcep_batch.transpose(-1, -2)
                 target_mcep_batch = target_mcep_batch.transpose(-1, -2)
-                batch_size = source_mcep_batch.size(0)
-                target_batch_size = target_mcep_batch.size(0)
-
-                if target_batch_size < batch_size:
-                    repeat_factor = (batch_size + target_batch_size - 1) // target_batch_size
-                    target_mcep_batch = target_mcep_batch.repeat(repeat_factor, 1, 1)[:batch_size]
-                elif target_batch_size > batch_size:
-                    target_mcep_batch = target_mcep_batch[:batch_size]
 
                 source_mcep_batch = source_mcep_batch.to(self.device)
                 target_mcep_batch = target_mcep_batch.to(self.device)
@@ -168,9 +149,15 @@ class Model():
                 # FORWARD PASSES
                 # ==============
 
-                # Identity mapping: x -> x', y -> y'
-                identity_x = self.generator_yx(source_mcep_batch)
-                identity_y = self.generator_xy(target_mcep_batch)
+                # Identity Loss
+                if self.iteration <= 10000:
+                    # Identity mapping: x -> x', y -> y'
+                    identity_x = self.generator_yx(source_mcep_batch)
+                    identity_y = self.generator_xy(target_mcep_batch)
+                    identity_mapping_loss = identity_loss_lambda * (self.criterion_identity(identity_x, source_mcep_batch) + self.criterion_identity(identity_y, target_mcep_batch))
+                else:
+                    identity_mapping_loss = torch.tensor(0.0, device = self.device)
+                
 
                 # Forward-inverse mapping: x -> y -> x', 
                 fake_y = self.generator_xy(source_mcep_batch)
@@ -186,9 +173,6 @@ class Model():
 
                 self.g_optimizer.zero_grad()
 
-                # Identity Loss
-                identity_mapping_loss = identity_loss_lambda * (self.criterion_identity(identity_x, source_mcep_batch) + self.criterion_identity(identity_y, target_mcep_batch))
-
                 # Cycle Loss
                 cycle_consistency_loss = cycle_loss_lambda * (self.criterion_cycle(cycle_x, source_mcep_batch) + self.criterion_cycle(cycle_y, target_mcep_batch))
 
@@ -196,16 +180,16 @@ class Model():
                 d_fake_x = self.discriminator_x(fake_x)
                 d_fake_y = self.discriminator_y(fake_y)
 
-                d_adv1_xy = self.criterion_adv(d_fake_y, torch.ones(d_fake_y.shape).to(self.device))
-                d_adv1_yx = self.criterion_adv(d_fake_x, torch.ones(d_fake_x.shape).to(self.device))
+                d_adv1_xy = self.criterion_adv(d_fake_y, torch.ones_like(d_fake_y))
+                d_adv1_yx = self.criterion_adv(d_fake_x, torch.ones_like(d_fake_x))
                 
                 g_first_adversarial_loss = d_adv1_xy + d_adv1_yx
 
                 # Adversarial loss for cycle-consistent mappings (second step)
                 d_cycle_x = self.discriminator_x2(cycle_x)
                 d_cycle_y = self.discriminator_y2(cycle_y)
-                d_adv2_xy = self.criterion_adv(d_cycle_x, torch.ones_like(d_cycle_x).to(self.device))
-                d_adv2_yx = self.criterion_adv(d_cycle_y, torch.ones_like(d_cycle_y).to(self.device))
+                d_adv2_xy = self.criterion_adv(d_cycle_x, torch.ones_like(d_cycle_x))
+                d_adv2_yx = self.criterion_adv(d_cycle_y, torch.ones_like(d_cycle_y))
 
                 g_second_adversarial_loss = d_adv2_xy + d_adv2_yx
 
@@ -213,8 +197,6 @@ class Model():
                 g_total_loss = identity_mapping_loss + cycle_consistency_loss + g_first_adversarial_loss + g_second_adversarial_loss
                 g_total_loss.backward()
                 self.g_optimizer.step()
-
-                self.g_scheduler.step()
 
                 # ====================
                 # DISCRIMINATOR UPDATE
@@ -235,14 +217,14 @@ class Model():
                 d2_cycle_y_det = self.discriminator_y2(cycle_y.detach())
 
                 # Discriminator adversarial loss for direct mappings (first step)
-                d_loss_x = self.criterion_adv(d_real_x, torch.ones_like(d_real_x).to(self.device)) + self.criterion_adv(d_fake_x_det, torch.zeros_like(d_fake_x_det).to(self.device))
-                d_loss_y = self.criterion_adv(d_real_y, torch.ones_like(d_real_y).to(self.device)) + self.criterion_adv(d_fake_y_det, torch.zeros_like(d_fake_y_det).to(self.device))
+                d_loss_x = self.criterion_adv(d_real_x, torch.ones_like(d_real_x)) + self.criterion_adv(d_fake_x_det, torch.zeros_like(d_fake_x_det))
+                d_loss_y = self.criterion_adv(d_real_y, torch.ones_like(d_real_y)) + self.criterion_adv(d_fake_y_det, torch.zeros_like(d_fake_y_det))
                 
                 d_first_adversarial_loss = d_loss_x + d_loss_y
 
                 # Discriminator adversarial loss for cycle-consistent mappings (second step)
-                d2_loss_x = self.criterion_adv(d2_real_x, torch.ones_like(d2_real_x).to(self.device)) + self.criterion_adv(d2_cycle_x_det, torch.zeros_like(d2_cycle_x_det).to(self.device))
-                d2_loss_y = self.criterion_adv(d2_real_y, torch.ones_like(d2_real_y).to(self.device)) + self.criterion_adv(d2_cycle_y_det, torch.zeros_like(d2_cycle_y_det).to(self.device))
+                d2_loss_x = self.criterion_adv(d2_real_x, torch.ones_like(d2_real_x)) + self.criterion_adv(d2_cycle_x_det, torch.zeros_like(d2_cycle_x_det))
+                d2_loss_y = self.criterion_adv(d2_real_y, torch.ones_like(d2_real_y)) + self.criterion_adv(d2_cycle_y_det, torch.zeros_like(d2_cycle_y_det))
 
                 d_second_adversarial_loss = d2_loss_x + d2_loss_y
 
@@ -250,8 +232,6 @@ class Model():
                 d_total_loss = d_first_adversarial_loss + d_second_adversarial_loss
                 d_total_loss.backward()
                 self.d_optimizer.step()
-
-                self.d_scheduler.step()
 
                 epoch_stats['G_Adv1'] += g_first_adversarial_loss.item()
                 epoch_stats['G_Adv2'] += g_second_adversarial_loss.item()
@@ -300,21 +280,14 @@ class Model():
         cycle_loss_lambda = 10
         identity_loss_lambda = 5 
 
-        if self.iteration >= 10000:
-            identity_loss_lambda = 0 
-
         num_batches = len(self.eval_source_loader)
         eval_stats = {'G_Adv1': 0.0, 'G_Adv2': 0.0, 'Cycle': 0.0, 'Identity': 0.0, 'G_Total': 0.0, 'D_Adv1': 0.0, 'D_Adv2': 0.0, 'D_Total': 0.0}
 
         with torch.no_grad():
-            target_iter = iter(self.eval_target_loader)
+            eval_target_batches = list(self.eval_target_loader)
             
             for i, source_sample in enumerate(self.eval_source_loader):
-                try:
-                    target_sample = next(target_iter)
-                except StopIteration:
-                    target_iter = iter(self.eval_target_loader)
-                    target_sample = next(target_iter)
+                target_sample = random.choice(eval_target_batches)  
 
                 source_mcep_batch, _ = source_sample
                 target_mcep_batch, _ = target_sample
@@ -322,15 +295,6 @@ class Model():
                 target_mcep_batch = torch.stack([torch.tensor(ad.getMcepSlice(mcep)) for mcep in target_mcep_batch])
                 source_mcep_batch = source_mcep_batch.transpose(-1, -2)
                 target_mcep_batch = target_mcep_batch.transpose(-1, -2)
-                
-                batch_size = source_mcep_batch.size(0)
-                target_batch_size = target_mcep_batch.size(0)
-
-                if target_batch_size < batch_size:
-                    repeat_factor = (batch_size + target_batch_size - 1) // target_batch_size
-                    target_mcep_batch = target_mcep_batch.repeat(repeat_factor, 1, 1)[:batch_size]
-                elif target_batch_size > batch_size:
-                    target_mcep_batch = target_mcep_batch[:batch_size]
 
                 source_mcep_batch = source_mcep_batch.to(self.device)
                 target_mcep_batch = target_mcep_batch.to(self.device)
@@ -338,9 +302,14 @@ class Model():
                 # ==============
                 # FORWARD PASSES
                 # ==============
-                # Identity mapping: x -> x', y -> y'
-                identity_x = self.generator_yx(source_mcep_batch)
-                identity_y = self.generator_xy(target_mcep_batch)
+
+                if self.iteration <= 10000:
+                    # Identity mapping: x -> x', y -> y'
+                    identity_x = self.generator_yx(source_mcep_batch)
+                    identity_y = self.generator_xy(target_mcep_batch)
+                    identity_mapping_loss = identity_loss_lambda * (self.criterion_identity(identity_x, source_mcep_batch) + self.criterion_identity(identity_y, target_mcep_batch))
+                else:
+                    identity_mapping_loss = torch.tensor(0.0, device = self.device)
 
                 # Forward-inverse mapping: x -> y -> x'
                 fake_y = self.generator_xy(source_mcep_batch)
@@ -353,19 +322,19 @@ class Model():
                 # =========================
                 # GENERATOR EVALUATION LOSS
                 # =========================
-                identity_mapping_loss = identity_loss_lambda * (self.criterion_identity(identity_x, source_mcep_batch) + self.criterion_identity(identity_y, target_mcep_batch))
+
                 cycle_consistency_loss = cycle_loss_lambda * (self.criterion_cycle(cycle_x, source_mcep_batch) + self.criterion_cycle(cycle_y, target_mcep_batch))
 
                 d_fake_x = self.discriminator_x(fake_x)
                 d_fake_y = self.discriminator_y(fake_y)
-                d_adv1_xy = self.criterion_adv(d_fake_y, torch.ones_like(d_fake_y).to(self.device))
-                d_adv1_yx = self.criterion_adv(d_fake_x, torch.ones_like(d_fake_x).to(self.device))
+                d_adv1_xy = self.criterion_adv(d_fake_y, torch.ones_like(d_fake_y))
+                d_adv1_yx = self.criterion_adv(d_fake_x, torch.ones_like(d_fake_x))
                 g_first_adversarial_loss = d_adv1_xy + d_adv1_yx
 
                 d_cycle_x = self.discriminator_x2(cycle_x)
                 d_cycle_y = self.discriminator_y2(cycle_y)
-                d_adv2_xy = self.criterion_adv(d_cycle_x, torch.ones_like(d_cycle_x).to(self.device))
-                d_adv2_yx = self.criterion_adv(d_cycle_y, torch.ones_like(d_cycle_y).to(self.device))
+                d_adv2_xy = self.criterion_adv(d_cycle_x, torch.ones_like(d_cycle_x))
+                d_adv2_yx = self.criterion_adv(d_cycle_y, torch.ones_like(d_cycle_y))
                 g_second_adversarial_loss = d_adv2_xy + d_adv2_yx
 
                 g_total_loss = identity_mapping_loss + cycle_consistency_loss + g_first_adversarial_loss + g_second_adversarial_loss
@@ -378,12 +347,12 @@ class Model():
                 d2_real_x = self.discriminator_x2(source_mcep_batch)
                 d2_real_y = self.discriminator_y2(target_mcep_batch)
 
-                d_loss_x = self.criterion_adv(d_real_x, torch.ones_like(d_real_x).to(self.device)) + self.criterion_adv(d_fake_x, torch.zeros_like(d_fake_x).to(self.device))
-                d_loss_y = self.criterion_adv(d_real_y, torch.ones_like(d_real_y).to(self.device)) + self.criterion_adv(d_fake_y, torch.zeros_like(d_fake_y).to(self.device))
+                d_loss_x = self.criterion_adv(d_real_x, torch.ones_like(d_real_x)) + self.criterion_adv(d_fake_x, torch.zeros_like(d_fake_x))
+                d_loss_y = self.criterion_adv(d_real_y, torch.ones_like(d_real_y)) + self.criterion_adv(d_fake_y, torch.zeros_like(d_fake_y))
                 d_first_adversarial_loss = d_loss_x + d_loss_y
 
-                d2_loss_x = self.criterion_adv(d2_real_x, torch.ones_like(d2_real_x).to(self.device)) + self.criterion_adv(d_cycle_x, torch.zeros_like(d_cycle_x).to(self.device))
-                d2_loss_y = self.criterion_adv(d2_real_y, torch.ones_like(d2_real_y).to(self.device)) + self.criterion_adv(d_cycle_y, torch.zeros_like(d_cycle_y).to(self.device))
+                d2_loss_x = self.criterion_adv(d2_real_x, torch.ones_like(d2_real_x)) + self.criterion_adv(d_cycle_x, torch.zeros_like(d_cycle_x))
+                d2_loss_y = self.criterion_adv(d2_real_y, torch.ones_like(d2_real_y)) + self.criterion_adv(d_cycle_y, torch.zeros_like(d_cycle_y))
                 d_second_adversarial_loss = d2_loss_x + d2_loss_y
 
                 d_total_loss = d_first_adversarial_loss + d_second_adversarial_loss
@@ -413,7 +382,11 @@ class Model():
     def logEpochStats(self, epoch, stats, is_eval = False):
         mode = 'EVAL' if is_eval else 'TRAIN'
         
-        log_str = f'[{mode}] Epoch {epoch:04d} | '
+        if isinstance(epoch, int):
+            log_str = f'[{mode}] Epoch {epoch:04d} | '
+        else:
+            log_str = f'[{mode}] Epoch {epoch} | '
+            
         log_str += ' | '.join([f'{k}: {v:.4f}' for k, v in stats.items()])
         
         print(log_str)
@@ -432,9 +405,9 @@ class Model():
             stats_copy = stats.copy()
             stats_copy['epoch'] = epoch
             self.loss_history.append(stats_copy)
-        
         else:
-            self.plotLosses()
+            if hasattr(self, 'loss_history') and len(self.loss_history) > 0:
+                self.plotLosses()
 
     def plotLosses(self):
         epochs = [s['epoch'] for s in self.loss_history]
@@ -453,7 +426,6 @@ class Model():
         plt.savefig(plot_path)
         plt.close()
 
-    # WILL SLICING CAUSE PROBLEMS
     def voiceToTarget(self, source, target, path_to_source_data, checkpoint):
         self.loadModel(checkpoint)
         self.generator_xy.eval()
@@ -465,72 +437,70 @@ class Model():
             path_to_source_data = os.path.join(self.project_root, path_to_source_data)
 
         data = np.load(path_to_source_data)
-        log_f0 = np.log(data['f0'])
-        mcep = data['mcep'].T
-
-        if source == self.source:
-            mcep = self.eval_dataset.normalizeMcep(mcep, True)
-        elif source == self.target:
-            mcep = self.eval_dataset.normalizeMcep(mcep, False)
+        f0 = data['f0']
+        log_f0 = np.zeros_like(f0)
+        log_f0[f0 > 0] = np.log(f0[f0 > 0])
+        mcep = data['mcep']
+        
+        if source == self.source and target == self.target:
+            mcep = self.eval_dataset.normalizeMcep(mcep, source = True)
+        elif source == self.target and target == self.source:
+            mcep = self.eval_dataset.normalizeMcep(mcep, source = False)
         else:
             raise ValueError('Invalid pair, current model is not for the selected source and target')
+        
+        mcep = mcep.T
         
         ap = data['source_parameter']
         pitch_data_path = os.path.join(self.data_dir, 'training_data', 'transformed_audio')
         pitch_dataset = ad.PitchDataset(pitch_data_path, source, target)
         f0_converted = pitch_dataset.pitchConversion(log_f0)
+        f0_converted[f0 <= 0] = 0.0
 
         chunk_size = 128
-        num_chunks = (mcep.shape[1]) // chunk_size
+        num_chunks = mcep.shape[1] // chunk_size
         fake_mcep_chunks = []
 
         for i in range(num_chunks):
             start = i * chunk_size
-            end = min(start + chunk_size, mcep.shape[1])
+            end = start + chunk_size
             mcep_chunk = mcep[:, start:end]
             mcep_tensor = torch.tensor(mcep_chunk, dtype = torch.float32).unsqueeze(0).to(self.device)
 
             with torch.no_grad():
                 if source == self.source and target == self.target:
                     fake_mcep_chunk = self.generator_xy(mcep_tensor)
+                    fake_mcep_chunk = fake_mcep_chunk.squeeze(0).cpu().numpy()
+                    fake_mcep_chunk = self.eval_dataset.denormalizeMcep(fake_mcep_chunk.T, source = False).T
+                    
                 elif source == self.target and target == self.source:
                     fake_mcep_chunk = self.generator_yx(mcep_tensor)
-                else:
-                    raise ValueError('Invalid pair, current model is not for the selected source and target')
-                
-                if source == self.source:
                     fake_mcep_chunk = fake_mcep_chunk.squeeze(0).cpu().numpy()
-                    fake_mcep_chunk = self.eval_dataset.denormalizeMcep(fake_mcep_chunk, True)
-                elif source == self.target:
-                    fake_mcep_chunk = fake_mcep_chunk.squeeze(0).cpu().numpy()
-                    fake_mcep_chunk = self.eval_dataset.denormalizeMcep(fake_mcep_chunk, False)
+                    fake_mcep_chunk = self.eval_dataset.denormalizeMcep(fake_mcep_chunk.T, source = True).T
 
                 fake_mcep_chunks.append(fake_mcep_chunk)
 
-        left_frames = mcep.shape[1] - chunk_size * num_chunks
-        padded_chunk = np.pad(mcep[:, mcep.shape[1] - left_frames:], ((0, 0), (0, 128 - left_frames)), mode = 'constant')
-        padded_tensor = torch.tensor(padded_chunk, dtype = torch.float32).unsqueeze(0).to(self.device)
-        
-        with torch.no_grad():
-            if source == self.source and target == self.target:
-                fake_mcep_chunk = self.generator_xy(padded_tensor)
-            elif source == self.target and target == self.source:
-                fake_mcep_chunk = self.generator_yx(padded_tensor)
-            else:
-                raise ValueError('Invalid pair, current model is not for the selected source and target')
+        left_frames = mcep.shape[1] - (chunk_size * num_chunks)
+        if left_frames > 0:
+            padded_chunk = np.pad(mcep[:, -left_frames:], ((0, 0), (0, 128 - left_frames)), mode = 'constant')
+            padded_tensor = torch.tensor(padded_chunk, dtype=torch.float32).unsqueeze(0).to(self.device)
             
-            if source == self.source:
-                fake_mcep_chunk = fake_mcep_chunk.squeeze(0).cpu().numpy()
-                fake_mcep_chunk = self.eval_dataset.denormalizeMcep(fake_mcep_chunk, True)
-            elif source == self.target:
-                fake_mcep_chunk = fake_mcep_chunk.squeeze(0).cpu().numpy()
-                fake_mcep_chunk = self.eval_dataset.denormalizeMcep(fake_mcep_chunk, False)
+            with torch.no_grad():
+                if source == self.source and target == self.target:
+                    fake_mcep_chunk = self.generator_xy(padded_tensor)
+                    fake_mcep_chunk = fake_mcep_chunk.squeeze(0).cpu().numpy()
+                    fake_mcep_chunk = self.eval_dataset.denormalizeMcep(fake_mcep_chunk.T, source=False).T
+                elif source == self.target and target == self.source:
+                    fake_mcep_chunk = self.generator_yx(padded_tensor)
+                    fake_mcep_chunk = fake_mcep_chunk.squeeze(0).cpu().numpy()
+                    fake_mcep_chunk = self.eval_dataset.denormalizeMcep(fake_mcep_chunk.T, source=True).T
 
-            fake_mcep_chunk = fake_mcep_chunk[:, 0:left_frames]
-            fake_mcep_chunks.append(fake_mcep_chunk)
+                fake_mcep_chunk = fake_mcep_chunk[:, :left_frames]
+                fake_mcep_chunks.append(fake_mcep_chunk)
 
         fake_mcep = np.concatenate(fake_mcep_chunks, axis = 1)
         fake_mcep = np.ascontiguousarray(fake_mcep.T.astype(np.float64))
+    
         synthesized_wav = u.reassembleWav(f0_converted, fake_mcep, ap, 22050, 5)
 
         wav_name = f'converted_{source}_to_{target}.wav'
@@ -552,17 +522,21 @@ class Model():
         # plt.grid(True)
         # plt.show()
 
+        plt.figure("Fake")
         plt.imshow(fake_mcep.T, aspect = 'auto', origin = 'lower', cmap = 'viridis', interpolation = 'none')
         plt.colorbar()
         plt.title('Fake Spectrogram')
         plt.xlabel('Time Frames')
         plt.ylabel('MCEP Coefficients')
-        plt.show()
+
+        plt.figure("Original")
 
         if source == self.source:
-            plt.imshow(self.eval_dataset.denormalizeMcep(mcep, True), aspect = 'auto', origin = 'lower', cmap = 'viridis', interpolation = 'none')
+            denorm_mcep = self.eval_dataset.denormalizeMcep(mcep.T, True).T
+            plt.imshow(denorm_mcep, aspect = 'auto', origin = 'lower', cmap = 'viridis', interpolation = 'none')
         else:
-            plt.imshow(self.eval_dataset.denormalizeMcep(mcep, False), aspect = 'auto', origin = 'lower', cmap = 'viridis', interpolation = 'none')
+            denorm_mcep = self.eval_dataset.denormalizeMcep(mcep.T, False).T
+            plt.imshow(denorm_mcep, aspect = 'auto', origin = 'lower', cmap = 'viridis', interpolation = 'none')
         
         plt.colorbar()
         plt.title('Original Spectrogram')
