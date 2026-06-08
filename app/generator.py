@@ -120,7 +120,7 @@ class Generator(nn.Module):
 
     def forward(self, x):
         if len(x.shape) == 3:
-            x = x.unsqueeze(1) # x is of shape b, c, h, w: 1, 1, 35, 128
+            x = x.unsqueeze(1) # b, c, h, w: 1, 1, 35, 128
         
         conv1 = self.conv1(x)
         glu = self.glu(conv1)

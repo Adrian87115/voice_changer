@@ -7,3 +7,5 @@ pyworld
 numpy
 soundfile
 matplotlib
+fastdtw
+scipy
